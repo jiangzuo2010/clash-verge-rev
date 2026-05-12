@@ -9,6 +9,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { useVerge } from '@/hooks/use-verge'
 import {
   useAppRefreshers,
@@ -48,6 +49,8 @@ export const ClashModeCard = () => {
   const { clashConfig } = useClashConfigData()
   const { isCoreDataPending } = useCoreDataStatus()
   const { refreshClashConfig } = useAppRefreshers()
+  const { enterprise } = useEnterprise()
+  const enterpriseManaged = enterprise?.config.enabled ?? false
 
   // 支持的模式列表
   const modeList = CLASH_MODES
@@ -81,6 +84,7 @@ export const ClashModeCard = () => {
 
   // 切换模式的处理函数
   const onChangeMode = useLockFn(async (mode: ClashMode) => {
+    if (enterpriseManaged) return
     if (mode === currentModeKey) return
     if (verge?.auto_close_connection) {
       closeAllConnections()
@@ -97,7 +101,7 @@ export const ClashModeCard = () => {
 
   // 按钮样式
   const buttonStyles = (mode: ClashMode) => ({
-    cursor: 'pointer',
+    cursor: enterpriseManaged ? 'default' : 'pointer',
     px: 2,
     py: 1.2,
     display: 'flex',
@@ -110,13 +114,17 @@ export const ClashModeCard = () => {
     transition: 'all 0.2s ease-in-out',
     position: 'relative',
     overflow: 'visible',
-    '&:hover': {
-      transform: 'translateY(-1px)',
-      boxShadow: 1,
-    },
-    '&:active': {
-      transform: 'translateY(1px)',
-    },
+    '&:hover': enterpriseManaged
+      ? {}
+      : {
+          transform: 'translateY(-1px)',
+          boxShadow: 1,
+        },
+    '&:active': enterpriseManaged
+      ? {}
+      : {
+          transform: 'translateY(1px)',
+        },
     '&::after':
       mode === currentModeKey
         ? {
@@ -165,7 +173,10 @@ export const ClashModeCard = () => {
           <Paper
             key={mode}
             elevation={mode === currentModeKey ? 2 : 0}
-            onClick={() => onChangeMode(mode)}
+            onClick={() => {
+              if (enterpriseManaged) return
+              onChangeMode(mode)
+            }}
             sx={buttonStyles(mode)}
           >
             {modeIcons[mode]}

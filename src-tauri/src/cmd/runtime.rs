@@ -1,5 +1,5 @@
 use super::CmdResult;
-use crate::{cmd::StringifyErr as _, config::Config, core::CoreManager};
+use crate::{cmd::StringifyErr as _, config::Config, core::CoreManager, enterprise::ensure_personal_mode};
 use anyhow::{Context as _, anyhow};
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::Mapping;
@@ -94,6 +94,9 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
 /// 更新运行时链式代理配置
 #[tauri::command]
 pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<serde_yaml_ng::Value>) -> CmdResult<()> {
+    ensure_personal_mode("update runtime proxy chain")
+        .await
+        .stringify_err()?;
     {
         let runtime = Config::runtime().await;
         runtime.edit_draft(|d| d.update_proxy_chain_config(proxy_chain_config));

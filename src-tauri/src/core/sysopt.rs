@@ -1,5 +1,6 @@
 use crate::{
     config::{Config, IVerge},
+    enterprise::EnterpriseState,
     singleton,
 };
 use anyhow::Result;
@@ -30,6 +31,17 @@ const fn proxy_apply_steps(sys_enabled: bool, auto_enabled: bool) -> [ProxyApply
         [ProxyApplyStep::Autoproxy, ProxyApplyStep::Sysproxy]
     } else {
         [ProxyApplyStep::Sysproxy, ProxyApplyStep::Autoproxy]
+    }
+}
+
+fn effective_proxy_settings(verge: &IVerge, enterprise_proxy_enabled: Option<bool>) -> (bool, bool, String) {
+    match enterprise_proxy_enabled {
+        Some(proxy_enabled) => (proxy_enabled, false, String::from("127.0.0.1")),
+        None => (
+            verge.enable_system_proxy.unwrap_or_default(),
+            verge.proxy_auto_config.unwrap_or_default(),
+            verge.proxy_host.clone().unwrap_or_else(|| String::from("127.0.0.1")),
+        ),
     }
 }
 
@@ -80,6 +92,15 @@ async fn get_bypass() -> String {
     }
 }
 
+async fn enterprise_system_proxy_override() -> Option<bool> {
+    let state = EnterpriseState::load().await;
+    if !state.config.enabled {
+        return None;
+    }
+
+    Some(state.is_authenticated() && state.has_valid_cached_policy())
+}
+
 singleton!(Sysopt, SYSOPT);
 
 impl Sysopt {
@@ -93,8 +114,11 @@ impl Sysopt {
 
     pub async fn refresh_guard(&self) {
         logging!(info, Type::Core, "Refreshing system proxy guard...");
+        let enterprise_proxy_enabled = enterprise_system_proxy_override().await;
         let verge = Config::verge().await.latest_arc();
-        if !verge.enable_system_proxy.unwrap_or_default() {
+        let system_proxy_enabled =
+            enterprise_proxy_enabled.unwrap_or_else(|| verge.enable_system_proxy.unwrap_or_default());
+        if !system_proxy_enabled {
             logging!(info, Type::Core, "System proxy is disabled.");
             self.access_guard().write().stop();
             return;
@@ -140,12 +164,9 @@ impl Sysopt {
             None => Config::clash().await.latest_arc().get_mixed_port(),
         };
         let pac_port = IVerge::get_singleton_port();
-        let (sys_enable, pac_enable, proxy_host, proxy_guard) = (
-            verge.enable_system_proxy.unwrap_or_default(),
-            verge.proxy_auto_config.unwrap_or_default(),
-            verge.proxy_host.clone().unwrap_or_else(|| String::from("127.0.0.1")),
-            verge.enable_proxy_guard.unwrap_or_default(),
-        );
+        let enterprise_proxy_enabled = enterprise_system_proxy_override().await;
+        let (sys_enable, pac_enable, proxy_host) = effective_proxy_settings(&verge, enterprise_proxy_enabled);
+        let proxy_guard = verge.enable_proxy_guard.unwrap_or_default();
         // 先 await, 避免持有锁导致的 Send 问题
         let bypass = get_bypass().await;
 
@@ -238,7 +259,9 @@ impl Sysopt {
 
 #[cfg(test)]
 mod tests {
-    use super::{ProxyApplyStep, proxy_apply_steps};
+    use super::{ProxyApplyStep, effective_proxy_settings, proxy_apply_steps};
+    use crate::config::IVerge;
+    use smartstring::alias::String;
 
     #[test]
     fn pure_sysproxy_mode_clears_pac_before_enabling_global_proxy() {
@@ -261,6 +284,51 @@ mod tests {
         assert_eq!(
             proxy_apply_steps(false, false),
             [ProxyApplyStep::Sysproxy, ProxyApplyStep::Autoproxy]
+        );
+    }
+
+    #[test]
+    fn enterprise_valid_policy_forces_local_global_proxy() {
+        let verge = IVerge {
+            enable_system_proxy: Some(false),
+            proxy_auto_config: Some(true),
+            proxy_host: Some(String::from("0.0.0.0")),
+            ..IVerge::default()
+        };
+
+        assert_eq!(
+            effective_proxy_settings(&verge, Some(true)),
+            (true, false, String::from("127.0.0.1"))
+        );
+    }
+
+    #[test]
+    fn enterprise_invalid_policy_forces_proxy_off() {
+        let verge = IVerge {
+            enable_system_proxy: Some(true),
+            proxy_auto_config: Some(true),
+            proxy_host: Some(String::from("0.0.0.0")),
+            ..IVerge::default()
+        };
+
+        assert_eq!(
+            effective_proxy_settings(&verge, Some(false)),
+            (false, false, String::from("127.0.0.1"))
+        );
+    }
+
+    #[test]
+    fn personal_mode_keeps_user_proxy_settings() {
+        let verge = IVerge {
+            enable_system_proxy: Some(true),
+            proxy_auto_config: Some(true),
+            proxy_host: Some(String::from("0.0.0.0")),
+            ..IVerge::default()
+        };
+
+        assert_eq!(
+            effective_proxy_settings(&verge, None),
+            (true, true, String::from("0.0.0.0"))
         );
     }
 }

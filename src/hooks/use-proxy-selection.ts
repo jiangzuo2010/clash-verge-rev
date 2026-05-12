@@ -31,6 +31,7 @@ interface ProxySelectionOptions {
   onSuccess?: () => void
   onError?: (error: any) => void
   enableConnectionCleanup?: boolean
+  disabled?: boolean
 }
 
 interface ProxyChangeRequest {
@@ -47,7 +48,12 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
   const pendingRequestRef = useRef<ProxyChangeRequest | null>(null)
   const isProcessingRef = useRef(false)
 
-  const { onSuccess, onError, enableConnectionCleanup = true } = options
+  const {
+    onSuccess,
+    onError,
+    enableConnectionCleanup = true,
+    disabled = false,
+  } = options
 
   // 缓存
   const config = useMemo(
@@ -157,6 +163,7 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
       previousProxy?: string,
       skipConfigSave: boolean = false,
     ) => {
+      if (disabled) return
       pendingRequestRef.current = {
         groupName,
         proxyName,
@@ -165,7 +172,7 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
       }
       void flushChangeQueue()
     },
-    [flushChangeQueue],
+    [disabled, flushChangeQueue],
   )
 
   const handleSelectChange = useCallback(

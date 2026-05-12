@@ -8,6 +8,7 @@ import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 import { BasePage } from '@/components/base'
 import { ProviderButton } from '@/components/proxy/provider-button'
 import { ProxyGroups } from '@/components/proxy/proxy-groups'
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { useVerge } from '@/hooks/use-verge'
 import {
   useAppRefreshers,
@@ -51,11 +52,14 @@ const ProxyPage = () => {
     dispatchChainConfigData(value)
   }, [])
   const { verge } = useVerge()
+  const { enterprise } = useEnterprise()
+  const enterpriseManaged = enterprise?.config.enabled ?? false
 
   const normalizedMode = clashConfig?.mode?.toLowerCase()
   const curMode = isMode(normalizedMode) ? normalizedMode : undefined
 
   const onChangeMode = useLockFn(async (mode: Mode) => {
+    if (enterpriseManaged) return
     // 断开连接
     if (mode !== curMode && verge?.auto_close_connection) {
       closeAllConnections()
@@ -65,6 +69,7 @@ const ProxyPage = () => {
   })
 
   const onToggleChainMode = useLockFn(async () => {
+    if (enterpriseManaged) return
     const newChainMode = !isChainMode
 
     setIsChainMode(newChainMode)
@@ -85,6 +90,11 @@ const ProxyPage = () => {
 
   // 当开启链式代理模式时，获取配置数据
   useEffect(() => {
+    if (enterpriseManaged) {
+      updateChainConfigData(null)
+      return
+    }
+
     if (!isChainMode) {
       updateChainConfigData(null)
       return
@@ -121,13 +131,13 @@ const ProxyPage = () => {
     return () => {
       cancelled = true
     }
-  }, [isChainMode, updateChainConfigData])
+  }, [enterpriseManaged, isChainMode, updateChainConfigData])
 
   useEffect(() => {
-    if (normalizedMode && !isMode(normalizedMode)) {
+    if (!enterpriseManaged && normalizedMode && !isMode(normalizedMode)) {
       onChangeMode('rule')
     }
-  }, [normalizedMode, onChangeMode])
+  }, [enterpriseManaged, normalizedMode, onChangeMode])
 
   return (
     <BasePage
@@ -140,43 +150,48 @@ const ProxyPage = () => {
       }
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ProviderButton />
+          {!enterpriseManaged && <ProviderButton />}
 
-          <ButtonGroup size="small">
-            {MODES.map((mode) => (
-              <Button
-                key={mode}
-                variant={mode === curMode ? 'contained' : 'outlined'}
-                onClick={() => onChangeMode(mode)}
-                sx={{ textTransform: 'capitalize' }}
-              >
-                {t(`proxies.page.modes.${mode}`)}
-              </Button>
-            ))}
-          </ButtonGroup>
+          {!enterpriseManaged && (
+            <ButtonGroup size="small">
+              {MODES.map((mode) => (
+                <Button
+                  key={mode}
+                  variant={mode === curMode ? 'contained' : 'outlined'}
+                  onClick={() => onChangeMode(mode)}
+                  sx={{ textTransform: 'capitalize' }}
+                >
+                  {t(`proxies.page.modes.${mode}`)}
+                </Button>
+              ))}
+            </ButtonGroup>
+          )}
 
-          <Button
-            size="small"
-            variant={isChainMode ? 'contained' : 'outlined'}
-            onClick={onToggleChainMode}
-            sx={{ ml: 1 }}
-            startIcon={
-              isChainMode ? (
-                <LanRounded fontSize="small" />
-              ) : (
-                <LanOutlined fontSize="small" />
-              )
-            }
-          >
-            {t('proxies.page.actions.toggleChain')}
-          </Button>
+          {!enterpriseManaged && (
+            <Button
+              size="small"
+              variant={isChainMode ? 'contained' : 'outlined'}
+              onClick={onToggleChainMode}
+              sx={{ ml: 1 }}
+              startIcon={
+                isChainMode ? (
+                  <LanRounded fontSize="small" />
+                ) : (
+                  <LanOutlined fontSize="small" />
+                )
+              }
+            >
+              {t('proxies.page.actions.toggleChain')}
+            </Button>
+          )}
         </Box>
       }
     >
       <ProxyGroups
         mode={curMode ?? 'rule'}
-        isChainMode={isChainMode}
+        isChainMode={enterpriseManaged ? false : isChainMode}
         chainConfigData={chainConfigData}
+        readonly={enterpriseManaged}
       />
     </BasePage>
   )

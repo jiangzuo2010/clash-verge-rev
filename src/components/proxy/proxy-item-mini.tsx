@@ -12,11 +12,19 @@ interface Props {
   selected: boolean
   showType?: boolean
   onClick?: (name: string) => void
+  disabled?: boolean
 }
 
 // 多列布局
 export const ProxyItemMini = (props: Props) => {
-  const { group, proxy, selected, showType = true, onClick } = props
+  const {
+    group,
+    proxy,
+    selected,
+    showType = true,
+    onClick,
+    disabled = false,
+  } = props
 
   const { t } = useTranslation()
 
@@ -30,7 +38,11 @@ export const ProxyItemMini = (props: Props) => {
     <ListItemButton
       dense
       selected={selected}
-      onClick={() => onClick?.(proxy.name)}
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return
+        onClick?.(proxy.name)
+      }}
       sx={[
         {
           height: 56,

@@ -96,6 +96,7 @@ impl CoreManager {
     }
 
     pub async fn init(&self) -> Result<()> {
+        crate::enterprise::ensure_enterprise_runtime_ready_for_core_start().await?;
         self.start_core().await?;
         Ok(())
     }

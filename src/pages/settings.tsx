@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
 import SettingClash from '@/components/setting/setting-clash'
+import SettingEnterprise from '@/components/setting/setting-enterprise'
 import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { openWebUrl } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
@@ -33,6 +35,8 @@ const SettingPage = () => {
 
   const mode = useThemeMode()
   const isDark = mode === 'light' ? false : true
+  const { enterprise } = useEnterprise()
+  const enterpriseManaged = enterprise?.config.enabled ?? false
 
   return (
     <BasePage
@@ -81,11 +85,22 @@ const SettingPage = () => {
           <Box
             sx={{
               borderRadius: 2,
+              marginBottom: 1.5,
               backgroundColor: isDark ? '#282a36' : '#ffffff',
             }}
           >
-            <SettingClash onError={onError} />
+            <SettingEnterprise onError={onError} />
           </Box>
+          {!enterpriseManaged && (
+            <Box
+              sx={{
+                borderRadius: 2,
+                backgroundColor: isDark ? '#282a36' : '#ffffff',
+              }}
+            >
+              <SettingClash onError={onError} />
+            </Box>
+          )}
         </Grid>
         <Grid size={6}>
           <Box
@@ -97,14 +112,16 @@ const SettingPage = () => {
           >
             <SettingVergeBasic onError={onError} />
           </Box>
-          <Box
-            sx={{
-              borderRadius: 2,
-              backgroundColor: isDark ? '#282a36' : '#ffffff',
-            }}
-          >
-            <SettingVergeAdvanced onError={onError} />
-          </Box>
+          {!enterpriseManaged && (
+            <Box
+              sx={{
+                borderRadius: 2,
+                backgroundColor: isDark ? '#282a36' : '#ffffff',
+              }}
+            >
+              <SettingVergeAdvanced onError={onError} />
+            </Box>
+          )}
         </Grid>
       </Grid>
     </BasePage>

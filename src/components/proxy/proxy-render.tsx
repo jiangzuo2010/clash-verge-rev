@@ -37,6 +37,7 @@ interface RenderProps {
     group: IRenderItem['group'],
     proxy: IRenderItem['proxy'] & { name: string },
   ) => void
+  readonly?: boolean
 }
 
 export const ProxyRender = (props: RenderProps) => {
@@ -49,6 +50,7 @@ export const ProxyRender = (props: RenderProps) => {
     onHeadState,
     onChangeProxy,
     isChainMode: _ = false,
+    readonly = false,
   } = props
   const { type, group, headState, proxy, proxyCol } = item
   const { verge } = useVerge()
@@ -75,10 +77,11 @@ export const ProxyRender = (props: RenderProps) => {
         proxy={proxyItem!}
         selected={group.now === proxyItem?.name}
         showType={showType}
+        disabled={readonly}
         onClick={() => onChangeProxy(group, proxyItem!)}
       />
     ))
-  }, [type, proxyCol, item.key, group, showType, onChangeProxy])
+  }, [type, proxyCol, item.key, group, showType, onChangeProxy, readonly])
 
   if (type === 0) {
     return (
@@ -185,6 +188,7 @@ export const ProxyRender = (props: RenderProps) => {
         selected={group.now === proxy?.name}
         showType={headState?.showType}
         sx={{ py: 0, pl: 2 }}
+        disabled={readonly}
         onClick={() => onChangeProxy(group, proxy!)}
       />
     )

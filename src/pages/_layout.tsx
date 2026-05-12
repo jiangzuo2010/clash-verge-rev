@@ -37,6 +37,7 @@ import { LayoutTraffic } from '@/components/layout/layout-traffic'
 import { NoticeManager } from '@/components/layout/notice-manager'
 import { UpdateButton } from '@/components/layout/update-button'
 import { WindowControls } from '@/components/layout/window-controller'
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowDecorations } from '@/hooks/use-window'
@@ -61,6 +62,9 @@ export const portableFlag = false
 type NavItem = (typeof navItems)[number]
 
 type MenuContextPosition = { top: number; left: number }
+
+const ENTERPRISE_RESTRICTED_PATHS = new Set(['/profile', '/unlock'])
+const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/settings'])
 
 interface SortableNavMenuItemProps {
   item: NavItem
@@ -115,12 +119,15 @@ const Layout = () => {
   const { t } = useTranslation()
   const { theme } = useCustomTheme()
   const { verge, mutateVerge, patchVerge } = useVerge()
+  const { enterprise } = useEnterprise()
   const { language } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
   const { switchLanguage } = useI18n()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const isLogsPage = pathname === '/logs'
+  const enterpriseManaged = enterprise?.config.enabled ?? false
+  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
@@ -171,6 +178,16 @@ const Layout = () => {
     onOptimisticUpdate: handleMenuOrderOptimisticUpdate,
     onPersist: handleMenuOrderPersist,
   })
+
+  const visibleMenuOrder = useMemo(() => {
+    if (!enterpriseManaged) {
+      return menuOrder
+    }
+    if (!enterpriseAuthenticated) {
+      return menuOrder.filter((path) => ENTERPRISE_SIGNED_OUT_PATHS.has(path))
+    }
+    return menuOrder.filter((path) => !ENTERPRISE_RESTRICTED_PATHS.has(path))
+  }, [enterpriseAuthenticated, enterpriseManaged, menuOrder])
 
   const handleMenuContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
@@ -234,6 +251,25 @@ const Layout = () => {
   )
 
   useLayoutEvents(handleNotice)
+
+  useEffect(() => {
+    if (
+      enterpriseManaged &&
+      !enterpriseAuthenticated &&
+      !ENTERPRISE_SIGNED_OUT_PATHS.has(pathname)
+    ) {
+      navigate('/settings', { replace: true })
+      return
+    }
+
+    if (
+      enterpriseManaged &&
+      enterpriseAuthenticated &&
+      ENTERPRISE_RESTRICTED_PATHS.has(pathname)
+    ) {
+      navigate('/settings', { replace: true })
+    }
+  }, [enterpriseAuthenticated, enterpriseManaged, navigate, pathname])
 
   useEffect(() => {
     if (language) {
@@ -366,12 +402,12 @@ const Layout = () => {
                 collisionDetection={closestCenter}
                 onDragEnd={handleMenuDragEnd}
               >
-                <SortableContext items={menuOrder}>
+                <SortableContext items={visibleMenuOrder}>
                   <List
                     className="the-menu"
                     onContextMenu={handleMenuContextMenu}
                   >
-                    {menuOrder.map((path) => {
+                    {visibleMenuOrder.map((path) => {
                       const item = navItemMap.get(path)
                       if (!item) {
                         return null
@@ -389,7 +425,7 @@ const Layout = () => {
               </DndContext>
             ) : (
               <List className="the-menu" onContextMenu={handleMenuContextMenu}>
-                {menuOrder.map((path) => {
+                {visibleMenuOrder.map((path) => {
                   const item = navItemMap.get(path)
                   if (!item) {
                     return null

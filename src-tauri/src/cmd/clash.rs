@@ -9,6 +9,7 @@ use crate::{
         CoreManager, handle,
         validate::{CoreConfigValidator, ValidationOutcome},
     },
+    enterprise::{ensure_enterprise_runtime_ready_for_core_start, ensure_personal_mode},
 };
 use clash_verge_logging::{Type, logging, logging_error};
 use compact_str::CompactString;
@@ -32,12 +33,14 @@ pub async fn get_clash_info() -> CmdResult<ClashInfo> {
 /// 修改Clash配置
 #[tauri::command]
 pub async fn patch_clash_config(payload: Mapping) -> CmdResult {
+    ensure_personal_mode("patch clash config").await.stringify_err()?;
     feat::patch_clash(&payload).await.stringify_err()
 }
 
 /// 修改Clash模式
 #[tauri::command]
 pub async fn patch_clash_mode(payload: String) -> CmdResult {
+    ensure_personal_mode("patch clash mode").await.stringify_err()?;
     feat::change_clash_mode(payload).await;
     Ok(())
 }
@@ -45,6 +48,7 @@ pub async fn patch_clash_mode(payload: String) -> CmdResult {
 /// 切换Clash核心
 #[tauri::command]
 pub async fn change_clash_core(clash_core: String) -> CmdResult<Option<String>> {
+    ensure_personal_mode("change clash core").await.stringify_err()?;
     logging!(info, Type::Config, "changing core to {clash_core}");
 
     match CoreManager::global().change_core(&clash_core).await {
@@ -79,6 +83,7 @@ pub async fn change_clash_core(clash_core: String) -> CmdResult<Option<String>> 
 /// 启动核心
 #[tauri::command]
 pub async fn start_core() -> CmdResult {
+    ensure_enterprise_runtime_ready_for_core_start().await.stringify_err()?;
     let result = CoreManager::global().start_core().await.stringify_err();
     if result.is_ok() {
         handle::Handle::refresh_clash();
@@ -101,6 +106,7 @@ pub async fn stop_core() -> CmdResult {
 #[tauri::command]
 pub async fn restart_core() -> CmdResult {
     logging_error!(Type::Core, Config::profiles().await.data_arc().save_file().await);
+    ensure_enterprise_runtime_ready_for_core_start().await.stringify_err()?;
     let result = CoreManager::global().restart_core().await.stringify_err();
     if result.is_ok() {
         handle::Handle::refresh_clash();
@@ -124,6 +130,7 @@ pub async fn test_delay(url: String) -> CmdResult<u32> {
 /// 保存DNS配置到单独文件
 #[tauri::command]
 pub async fn save_dns_config(dns_config: Mapping) -> CmdResult {
+    ensure_personal_mode("save dns config").await.stringify_err()?;
     use crate::utils::dirs;
     use serde_yaml_ng;
     use tokio::fs;
@@ -142,6 +149,7 @@ pub async fn save_dns_config(dns_config: Mapping) -> CmdResult {
 /// 应用或撤销DNS配置
 #[tauri::command]
 pub async fn apply_dns_config(apply: bool) -> CmdResult {
+    ensure_personal_mode("apply dns config").await.stringify_err()?;
     if apply {
         // 读取DNS配置文件
         let dns_path = dirs::app_home_dir().stringify_err()?.join(constants::files::DNS_CONFIG);

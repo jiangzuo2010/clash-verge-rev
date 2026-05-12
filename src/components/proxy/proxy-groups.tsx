@@ -54,6 +54,7 @@ interface Props {
   mode: string
   isChainMode?: boolean
   chainConfigData?: string | null
+  readonly?: boolean
 }
 
 interface ProxyChainItem {
@@ -65,7 +66,7 @@ interface ProxyChainItem {
 
 export const ProxyGroups = (props: Props) => {
   const { t } = useTranslation()
-  const { mode, isChainMode = false, chainConfigData } = props
+  const { mode, isChainMode = false, chainConfigData, readonly = false } = props
 
   // Drive 3s polling on the shared TQ cache; data is read via granular context below
   useQuery({
@@ -145,6 +146,7 @@ export const ProxyGroups = (props: Props) => {
 
   // 统代理选择
   const { handleProxyGroupChange } = useProxySelection({
+    disabled: readonly,
     onSuccess: () => {
       onProxies()
     },
@@ -313,6 +315,8 @@ export const ProxyGroups = (props: Props) => {
 
   const handleChangeProxy = useCallback(
     (group: IProxyGroupItem, proxy: IProxyItem) => {
+      if (readonly) return
+
       if (isChainMode) {
         // 使用函数式更新来避免状态延迟问题
         setProxyChain((prev) => {
@@ -348,7 +352,7 @@ export const ProxyGroups = (props: Props) => {
 
       handleProxyGroupChange(group, proxy)
     },
-    [handleProxyGroupChange, isChainMode, t],
+    [handleProxyGroupChange, isChainMode, readonly, t],
   )
 
   // 测全部延迟
@@ -456,6 +460,7 @@ export const ProxyGroups = (props: Props) => {
       stickyItem={stickyGroupItem}
       indent={mode === 'rule' || mode === 'script'}
       isChainMode={isChainMode}
+      readonly={readonly}
       measureElement={virtualizer.measureElement}
       onLocation={handleLocation}
       onCheckAll={handleCheckAll}
@@ -567,6 +572,7 @@ interface ProxyVirtualListProps {
   stickyItem: IRenderItem | null
   indent: boolean
   isChainMode?: boolean
+  readonly?: boolean
   measureElement: (node: Element | null) => void
   onLocation: (group: IRenderItem['group']) => void
   onCheckAll: (groupName: string) => void
@@ -731,6 +737,7 @@ function ProxyVirtualList({
   stickyItem,
   indent,
   isChainMode,
+  readonly,
   measureElement,
   onLocation,
   onCheckAll,
@@ -765,6 +772,7 @@ function ProxyVirtualList({
               onHeadState={onHeadState}
               onChangeProxy={onChangeProxy}
               isChainMode={isChainMode}
+              readonly={readonly}
             />
           </Box>
         </Box>
@@ -792,6 +800,7 @@ function ProxyVirtualList({
               onHeadState={onHeadState}
               onChangeProxy={onChangeProxy}
               isChainMode={isChainMode}
+              readonly={readonly}
             />
           </div>
         ))}

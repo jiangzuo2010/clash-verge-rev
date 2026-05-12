@@ -34,6 +34,7 @@ import { useNavigate } from 'react-router'
 import { delayGroup, healthcheckProxyProvider } from 'tauri-plugin-mihomo-api'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
@@ -117,6 +118,8 @@ export const CurrentProxyCard = () => {
   const { refreshProxy } = useAppRefreshers()
   const { isCoreDataPending } = useCoreDataStatus()
   const { verge } = useVerge()
+  const { enterprise } = useEnterprise()
+  const enterpriseManaged = enterprise?.config.enabled ?? false
   const { current: currentProfile } = useProfiles()
   const autoDelayEnabled = verge?.enable_auto_delay_detection ?? false
   const defaultLatencyTimeout = verge?.default_latency_timeout
@@ -173,6 +176,7 @@ export const CurrentProxyCard = () => {
 
   // 统一代理选择器
   const { handleSelectChange } = useProxySelection({
+    disabled: enterpriseManaged,
     onSuccess: () => {
       refreshProxy()
     },
@@ -463,6 +467,7 @@ export const CurrentProxyCard = () => {
   // 处理代理组变更
   const handleGroupChange = useCallback(
     (event: SelectChangeEvent<string>) => {
+      if (enterpriseManaged) return
       if (isGlobalMode || isDirectMode) return
 
       const newGroup = event.target.value
@@ -492,12 +497,13 @@ export const CurrentProxyCard = () => {
         }
       })
     },
-    [isGlobalMode, isDirectMode, writeProfileScopedItem],
+    [enterpriseManaged, isGlobalMode, isDirectMode, writeProfileScopedItem],
   )
 
   // 处理代理节点变更
   const handleProxyChange = useCallback(
     (event: SelectChangeEvent<string>) => {
+      if (enterpriseManaged) return
       if (isDirectMode) return
 
       const newProxy = event.target.value
@@ -527,6 +533,7 @@ export const CurrentProxyCard = () => {
       debouncedSetState,
       handleSelectChange,
       writeProfileScopedItem,
+      enterpriseManaged,
     ],
   )
 
@@ -1012,7 +1019,7 @@ export const CurrentProxyCard = () => {
               value={state.selection.group}
               onChange={handleGroupChange}
               label={t('home.components.currentProxy.labels.group')}
-              disabled={isGlobalMode || isDirectMode}
+              disabled={enterpriseManaged || isGlobalMode || isDirectMode}
             >
               {state.proxyData.groups.map((group) => (
                 <MenuItem key={group.name} value={group.name}>
@@ -1032,7 +1039,7 @@ export const CurrentProxyCard = () => {
               value={state.selection.proxy}
               onChange={handleProxyChange}
               label={t('home.components.currentProxy.labels.proxy')}
-              disabled={isDirectMode}
+              disabled={enterpriseManaged || isDirectMode}
               renderValue={renderProxyValue}
               MenuProps={{
                 slotProps: {

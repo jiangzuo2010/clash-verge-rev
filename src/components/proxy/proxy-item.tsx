@@ -22,6 +22,7 @@ interface Props {
   showType?: boolean
   sx?: SxProps<Theme>
   onClick?: (name: string) => void
+  disabled?: boolean
 }
 
 const Widget = styled(Box)(() => ({
@@ -43,7 +44,15 @@ const TypeBox = styled('span')(({ theme }) => ({
 }))
 
 export const ProxyItem = (props: Props) => {
-  const { group, proxy, selected, showType = true, sx, onClick } = props
+  const {
+    group,
+    proxy,
+    selected,
+    showType = true,
+    sx,
+    onClick,
+    disabled = false,
+  } = props
 
   // -1/<=0 为不显示，-2 为 loading
   const { delayValue, isPreset, timeout, onDelay } = useProxyDelayState(
@@ -56,7 +65,11 @@ export const ProxyItem = (props: Props) => {
       <ListItemButton
         dense
         selected={selected}
-        onClick={() => onClick?.(proxy.name)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return
+          onClick?.(proxy.name)
+        }}
         sx={[
           { borderRadius: 1 },
           ({ palette: { mode, primary } }) => {

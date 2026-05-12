@@ -9,6 +9,7 @@ use crate::{
         validate::CoreConfigValidator,
     },
     enhance,
+    enterprise::{EnterpriseState, build_managed_proxy_config},
     process::AsyncHandler,
     utils::{dirs, help},
 };
@@ -192,7 +193,20 @@ impl Config {
     }
 
     pub async fn generate() -> Result<()> {
+        let enterprise_state = EnterpriseState::load().await;
+        if enterprise_state.config.enabled && !enterprise_state.is_authenticated() {
+            anyhow::bail!("enterprise mode requires login");
+        }
+
         let (mut config, exists_keys, logs) = enhance::enhance().await?;
+
+        if enterprise_state.config.enabled {
+            let policy = enterprise_state
+                .cached_policy
+                .as_ref()
+                .ok_or_else(|| anyhow!("enterprise policy has not been synced"))?;
+            apply_enterprise_managed_proxy_config(&mut config, build_managed_proxy_config(&policy.policy)?);
+        }
 
         sanitize_tunnels_proxy(&mut config);
 
@@ -251,6 +265,18 @@ impl Config {
 
         let _ = tokio::join!(save_clash_task, save_verge_task, save_profiles_task);
         logging!(info, Type::Config, "save all draft data finished");
+    }
+}
+
+fn apply_enterprise_managed_proxy_config(config: &mut Mapping, managed: Mapping) {
+    for key in ["proxy-providers", "rule-providers"] {
+        config.remove(Value::String(key.into()));
+    }
+
+    for key in ["mode", "proxies", "proxy-groups", "rules"] {
+        if let Some(value) = managed.get(Value::String(key.into())) {
+            config.insert(Value::String(key.into()), value.clone());
+        }
     }
 }
 
@@ -359,5 +385,70 @@ mod tests {
         let draft = Draft::new(Box::new(IRuntime::new()));
         let box_iruntime_size = std::mem::size_of_val(&draft);
         assert_eq!(box_iruntime_size, std::mem::size_of::<Draft<Box<IRuntime>>>());
+    }
+
+    #[test]
+    fn enterprise_managed_config_replaces_proxy_surface() {
+        #[allow(clippy::expect_used)]
+        let mut config: Mapping = serde_yaml_ng::from_str(
+            r"
+mode: global
+mixed-port: 7890
+proxy-providers:
+  user-provider:
+    type: http
+rule-providers:
+  user-rules:
+    type: http
+proxies:
+  - name: user-node
+    type: http
+    server: user.example
+    port: 8080
+proxy-groups:
+  - name: user-group
+    type: select
+    proxies:
+      - user-node
+rules:
+  - MATCH,user-group
+",
+        )
+        .expect("config should parse");
+        #[allow(clippy::expect_used)]
+        let managed: Mapping = serde_yaml_ng::from_str(
+            r"
+mode: rule
+proxies:
+  - name: company-node
+    type: http
+    server: proxy.company.example
+    port: 443
+proxy-groups:
+  - name: COMPANY-PROXY
+    type: select
+    proxies:
+      - company-node
+rules:
+  - DOMAIN,docs.company.example,COMPANY-PROXY
+  - MATCH,DIRECT
+",
+        )
+        .expect("managed config should parse");
+
+        apply_enterprise_managed_proxy_config(&mut config, managed);
+
+        assert_eq!(config.get("mode").and_then(Value::as_str), Some("rule"));
+        assert_eq!(config.get("mixed-port").and_then(Value::as_i64), Some(7890));
+        assert!(config.get("proxy-providers").is_none());
+        assert!(config.get("rule-providers").is_none());
+        assert_eq!(
+            config
+                .get("rules")
+                .and_then(Value::as_sequence)
+                .and_then(|rules| rules.last())
+                .and_then(Value::as_str),
+            Some("MATCH,DIRECT")
+        );
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
     core::{CoreManager, handle, tray},
+    enterprise::{ensure_enterprise_runtime_ready_for_core_start, ensure_personal_mode},
     feat::clean_async,
     process::AsyncHandler,
     utils,
@@ -25,6 +26,12 @@ static TLS_CONFIG: Lazy<Arc<rustls::ClientConfig>> = Lazy::new(|| {
 
 /// Restart the Clash core
 pub async fn restart_clash_core() {
+    if let Err(err) = ensure_enterprise_runtime_ready_for_core_start().await {
+        handle::Handle::notice_message("set_config::error", format!("{err}"));
+        logging!(error, Type::Core, "{err}");
+        return;
+    }
+
     match CoreManager::global().restart_core().await {
         Ok(_) => {
             handle::Handle::refresh_clash();
@@ -81,6 +88,11 @@ fn after_change_clash_mode() {
 
 /// Change Clash mode (rule/global/direct/script)
 pub async fn change_clash_mode(mode: String) {
+    if let Err(err) = ensure_personal_mode("change clash mode").await {
+        logging!(warn, Type::Core, "{err}");
+        return;
+    }
+
     let mut mapping = Mapping::new();
     mapping.insert(Value::from("mode"), Value::from(mode.as_str()));
     // Convert YAML mapping to JSON Value

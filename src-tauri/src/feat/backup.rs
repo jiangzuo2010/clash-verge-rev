@@ -1,6 +1,7 @@
 use crate::{
     config::{Config, IClashTemp, IProfiles, IVerge},
     core::backup,
+    enterprise::ensure_personal_mode,
     process::AsyncHandler,
     utils::{
         dirs::{PathBufExec as _, app_home_dir, local_backup_dir, verge_path},
@@ -31,6 +32,8 @@ async fn finalize_restored_verge_config(
     webdav_username: Option<String>,
     webdav_password: Option<String>,
 ) -> Result<()> {
+    ensure_personal_mode("restore backup").await?;
+
     // Do NOT silently fallback to defaults; a broken/missing verge.yaml means restore failed.
     // Propagate the error so the UI/user can react accordingly.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;

@@ -30,8 +30,10 @@ import { ClashModeCard } from '@/components/home/clash-mode-card'
 import { CurrentProxyCard } from '@/components/home/current-proxy-card'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
+import { EnterpriseStatusCard } from '@/components/home/enterprise-status-card'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
+import { useEnterprise } from '@/hooks/use-enterprise'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
 import { entry_lightweight_mode, openWebUrl } from '@/services/cmds'
@@ -211,7 +213,9 @@ const HomeSettingsDialog = ({
 const HomePage = () => {
   const { t } = useTranslation()
   const { verge } = useVerge()
+  const { enterprise } = useEnterprise()
   const { current, mutateProfiles } = useProfiles()
+  const enterpriseManaged = enterprise?.config.enabled ?? false
 
   // 设置弹窗的状态
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -286,15 +290,20 @@ const HomePage = () => {
 
   const criticalCards = useMemo(
     () => [
-      renderCard(
-        'profile',
-        <HomeProfileCard current={current} onProfileUpdated={mutateProfiles} />,
-      ),
+      enterpriseManaged
+        ? renderCard('profile', <EnterpriseStatusCard />)
+        : renderCard(
+            'profile',
+            <HomeProfileCard
+              current={current}
+              onProfileUpdated={mutateProfiles}
+            />,
+          ),
       renderCard('proxy', <CurrentProxyCard />),
-      renderCard('network', <NetworkSettingsCard />),
+      enterpriseManaged ? null : renderCard('network', <NetworkSettingsCard />),
       renderCard('mode', <ClashModeEnhancedCard />),
     ],
-    [current, mutateProfiles, renderCard],
+    [current, enterpriseManaged, mutateProfiles, renderCard],
   )
 
   // 新增：保存设置时用requestIdleCallback/setTimeout

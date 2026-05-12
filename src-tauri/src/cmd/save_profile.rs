@@ -7,6 +7,7 @@ use crate::{
         CoreManager, handle,
         validate::{CoreConfigValidator, ValidationOutcome},
     },
+    enterprise::ensure_personal_mode,
     module::auto_backup::{AutoBackupManager, AutoBackupTrigger},
     utils::dirs,
 };
@@ -17,6 +18,7 @@ use tokio::fs;
 /// 保存profiles的配置
 #[tauri::command]
 pub async fn save_profile_file(index: String, file_data: Option<String>) -> CmdResult<ValidationOutcome> {
+    ensure_personal_mode("save profile file").await.stringify_err()?;
     let file_data = match file_data {
         Some(d) => d,
         None => return Ok(ValidationOutcome::Valid),

@@ -8,11 +8,13 @@ use tauri::Url;
 use crate::{
     config::{Config, PrfItem, profiles},
     core::{CoreManager, handle},
+    enterprise::ensure_personal_mode,
 };
 use clash_verge_logging::{Type, logging, logging_error};
 
 pub(super) async fn resolve_scheme(param: &str) -> Result<()> {
     logging!(info, Type::Config, "received deep link: {param}");
+    ensure_personal_mode("import subscription from deep link").await?;
 
     let param_str = if param.starts_with("[") && param.len() > 4 {
         param

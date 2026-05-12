@@ -2,6 +2,7 @@ use crate::{
     cmd,
     config::{Config, PrfItem, PrfOption, profiles::profiles_draft_update_item_safe},
     core::{CoreManager, handle, tray, validate::ValidationOutcome},
+    enterprise::ensure_personal_mode,
     utils::help::{mask_err, mask_url},
 };
 use anyhow::{Result, bail};
@@ -11,6 +12,11 @@ use tauri::Emitter as _;
 
 /// Toggle proxy profile
 pub async fn toggle_proxy_profile(profile_index: String) {
+    if let Err(err) = ensure_personal_mode("switch profile from tray").await {
+        logging!(warn, Type::Tray, "{err}");
+        return;
+    }
+
     logging_error!(
         Type::Config,
         cmd::patch_profiles_config_by_profile_index(profile_index).await
@@ -18,6 +24,11 @@ pub async fn toggle_proxy_profile(profile_index: String) {
 }
 
 pub async fn switch_proxy_node(group_name: &str, proxy_name: &str) {
+    if let Err(err) = ensure_personal_mode("switch proxy node from tray").await {
+        logging!(warn, Type::Tray, "{err}");
+        return;
+    }
+
     match handle::Handle::mihomo()
         .await
         .select_node_for_group(group_name, proxy_name)
@@ -193,6 +204,8 @@ pub async fn update_profile(
     ignore_auto_update: bool,
     is_mannual_trigger: bool,
 ) -> Result<()> {
+    ensure_personal_mode("update profile subscription").await?;
+
     logging!(info, Type::Config, "[订阅更新] 开始更新订阅 {}", uid);
     let url_opt = should_update_profile(uid, ignore_auto_update).await?;
 
@@ -231,5 +244,7 @@ pub async fn update_profile(
 
 /// 增强配置
 pub async fn enhance_profiles() -> Result<ValidationOutcome> {
+    ensure_personal_mode("reactivate profiles").await?;
+
     CoreManager::global().update_config_forced().await
 }

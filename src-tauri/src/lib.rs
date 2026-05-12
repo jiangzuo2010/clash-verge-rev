@@ -6,6 +6,7 @@ pub mod config;
 mod constants;
 mod core;
 mod enhance;
+pub mod enterprise;
 mod feat;
 mod module;
 mod process;
@@ -128,6 +129,47 @@ mod app_init {
         Ok(())
     }
 
+    pub fn bootstrap_enterprise() {
+        AsyncHandler::spawn(|| async {
+            loop {
+                if core::handle::Handle::global().is_exiting() {
+                    break;
+                }
+
+                let state = enterprise::EnterpriseState::load().await;
+                let delay_secs = enterprise::next_policy_refresh_delay_secs(&state);
+                if !state.is_authenticated() {
+                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                    continue;
+                }
+
+                let next_delay_secs = match enterprise::sync_enterprise_policy_from_server().await {
+                    Ok(state) => {
+                        match enterprise::apply_enterprise_runtime_state(&state).await {
+                            Ok(()) => {
+                                logging!(info, Type::Setup, "企业策略已同步并应用");
+                            }
+                            Err(err) => {
+                                logging!(warn, Type::Setup, "应用企业策略出错: {}", err);
+                            }
+                        }
+                        enterprise::next_policy_refresh_delay_secs(&state)
+                    }
+                    Err(err) => {
+                        logging!(warn, Type::Setup, "同步企业策略失败: {}", err);
+                        let state = enterprise::EnterpriseState::load().await;
+                        if let Err(err) = enterprise::apply_enterprise_runtime_state(&state).await {
+                            logging!(warn, Type::Setup, "同步失败后关闭企业运行时出错: {}", err);
+                        }
+                        delay_secs
+                    }
+                };
+
+                tokio::time::sleep(std::time::Duration::from_secs(next_delay_secs)).await;
+            }
+        });
+    }
+
     pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
         tauri::generate_handler![
             tauri_plugin_clash_verge_sysinfo::commands::get_system_info,
@@ -177,6 +219,12 @@ mod app_init {
             cmd::check_dns_config_exists,
             cmd::get_dns_config_content,
             cmd::validate_dns_config,
+            cmd::get_enterprise_state,
+            cmd::patch_enterprise_config,
+            cmd::clear_enterprise_session,
+            cmd::start_enterprise_login,
+            cmd::complete_enterprise_login,
+            cmd::sync_enterprise_policy,
             cmd::get_clash_logs,
             cmd::get_verge_config,
             cmd::patch_verge_config,
@@ -251,6 +299,7 @@ pub fn run() {
 
             resolve::resolve_setup_async();
             resolve::resolve_setup_sync();
+            app_init::bootstrap_enterprise();
             resolve::init_signal();
 
             logging!(info, Type::Setup, "初始化已启动");

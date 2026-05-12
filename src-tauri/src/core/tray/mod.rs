@@ -6,7 +6,7 @@ use crate::process::AsyncHandler;
 use crate::singleton;
 use crate::utils::window_manager::WindowManager;
 use crate::{
-    Type, cmd, config::Config, feat, logging, module::lightweight::is_in_lightweight_mode,
+    Type, cmd, config::Config, enterprise::EnterpriseState, feat, logging, module::lightweight::is_in_lightweight_mode,
     utils::dirs::find_target_icons,
 };
 use clash_verge_limiter::{Limiter, SystemClock, SystemLimiter};
@@ -210,6 +210,7 @@ impl Tray {
         let profiles_arc = profiles_config.latest_arc();
         let profiles_preview = profiles_arc.profiles_preview().unwrap_or_default();
         let is_lightweight_mode = is_in_lightweight_mode();
+        let enterprise_managed = EnterpriseState::load().await.config.enabled;
 
         logging_error!(
             Type::Tray,
@@ -222,6 +223,7 @@ impl Tray {
                     tun_mode_available,
                     profiles_preview,
                     is_lightweight_mode,
+                    enterprise_managed,
                 )
                 .await?,
             ))
@@ -575,6 +577,7 @@ fn create_proxy_menu_item(
     Ok((proxies_submenu, inline_proxy_items))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_tray_menu(
     app_handle: &AppHandle,
     mode: Option<&str>,
@@ -583,42 +586,52 @@ async fn create_tray_menu(
     tun_mode_available: bool,
     profiles_preview: Vec<IProfilePreview<'_>>,
     is_lightweight_mode: bool,
+    enterprise_managed: bool,
 ) -> Result<tauri::menu::Menu<Wry>> {
     let current_proxy_mode = mode.unwrap_or("");
+    let managed_editing_enabled = !enterprise_managed;
 
     // TODO: should update tray menu again when it was timeout error
-    let proxy_nodes_data = tokio::time::timeout(
-        Duration::from_millis(1000),
-        handle::Handle::mihomo().await.get_proxies(),
-    )
-    .await
-    .map_or(None, |res| res.ok());
-
-    let runtime_proxy_groups_order = cmd::get_runtime_config()
+    let proxy_nodes_data = if managed_editing_enabled {
+        tokio::time::timeout(
+            Duration::from_millis(1000),
+            handle::Handle::mihomo().await.get_proxies(),
+        )
         .await
-        .map_err(|e| {
-            logging!(
-                error,
-                Type::Cmd,
-                "Failed to fetch runtime proxy groups for tray menu: {e}"
-            );
-        })
-        .ok()
-        .flatten()
-        .map(|config| {
-            config
-                .get("proxy-groups")
-                .and_then(|groups| groups.as_sequence())
-                .map(|groups| {
-                    groups
-                        .iter()
-                        .filter_map(|group| group.get("name"))
-                        .filter_map(|name| name.as_str())
-                        .map(|name| name.into())
-                        .collect::<Vec<String>>()
-                })
-                .unwrap_or_default()
-        });
+        .map_or(None, |res| res.ok())
+    } else {
+        None
+    };
+
+    let runtime_proxy_groups_order = if managed_editing_enabled {
+        cmd::get_runtime_config()
+            .await
+            .map_err(|e| {
+                logging!(
+                    error,
+                    Type::Cmd,
+                    "Failed to fetch runtime proxy groups for tray menu: {e}"
+                );
+            })
+            .ok()
+            .flatten()
+            .map(|config| {
+                config
+                    .get("proxy-groups")
+                    .and_then(|groups| groups.as_sequence())
+                    .map(|groups| {
+                        groups
+                            .iter()
+                            .filter_map(|group| group.get("name"))
+                            .filter_map(|name| name.as_str())
+                            .map(|name| name.into())
+                            .collect::<Vec<String>>()
+                    })
+                    .unwrap_or_default()
+            })
+    } else {
+        None
+    };
 
     let proxy_group_order_map: Option<HashMap<smartstring::SmartString<smartstring::LazyCompact>, usize>> =
         runtime_proxy_groups_order.as_ref().map(|group_names| {
@@ -662,7 +675,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::RULE_MODE,
         &texts.rule_mode,
-        true,
+        managed_editing_enabled,
         current_proxy_mode == "rule",
         hotkeys.get("clash_mode_rule").map(|s| s.as_str()),
     )?;
@@ -671,7 +684,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::GLOBAL_MODE,
         &texts.global_mode,
-        true,
+        managed_editing_enabled,
         current_proxy_mode == "global",
         hotkeys.get("clash_mode_global").map(|s| s.as_str()),
     )?;
@@ -680,7 +693,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::DIRECT_MODE,
         &texts.direct_mode,
-        true,
+        managed_editing_enabled,
         current_proxy_mode == "direct",
         hotkeys.get("clash_mode_direct").map(|s| s.as_str()),
     )?;
@@ -698,7 +711,7 @@ async fn create_tray_menu(
             app_handle,
             MenuIds::OUTBOUND_MODES,
             outbound_modes_label.as_str(),
-            true,
+            managed_editing_enabled,
             &[
                 rule_mode as &dyn IsMenuItem<Wry>,
                 global_mode as &dyn IsMenuItem<Wry>,
@@ -711,7 +724,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::PROFILES,
         &texts.profiles,
-        true,
+        managed_editing_enabled,
         &profile_menu_items_refs,
     )?;
 
@@ -728,7 +741,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::SYSTEM_PROXY,
         &texts.system_proxy,
-        true,
+        managed_editing_enabled,
         system_proxy_enabled,
         hotkeys.get("toggle_system_proxy").map(|s| s.as_str()),
     )?;
@@ -737,7 +750,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::TUN_MODE,
         &texts.tun_mode,
-        tun_mode_available,
+        managed_editing_enabled && tun_mode_available,
         tun_mode_enabled,
         hotkeys.get("toggle_tun_mode").map(|s| s.as_str()),
     )?;
@@ -823,7 +836,7 @@ async fn create_tray_menu(
     // 动态构建菜单项
     let mut menu_items: Vec<&dyn IsMenuItem<Wry>> = vec![open_window, separator];
 
-    if show_outbound_modes_inline {
+    if show_outbound_modes_inline && managed_editing_enabled {
         menu_items.extend_from_slice(&[
             rule_mode as &dyn IsMenuItem<Wry>,
             global_mode as &dyn IsMenuItem<Wry>,
@@ -833,17 +846,21 @@ async fn create_tray_menu(
         menu_items.push(outbound_modes);
     }
 
-    menu_items.extend_from_slice(&[separator, profiles]);
+    if managed_editing_enabled {
+        menu_items.extend_from_slice(&[separator, profiles]);
+    }
 
     // 如果有代理节点，添加代理节点菜单
-    match tray_proxy_groups_display_mode {
-        "default" => {
-            menu_items.extend(proxies_menu.iter().map(|item| item as &dyn IsMenuItem<_>));
+    if managed_editing_enabled {
+        match tray_proxy_groups_display_mode {
+            "default" => {
+                menu_items.extend(proxies_menu.iter().map(|item| item as &dyn IsMenuItem<_>));
+            }
+            "inline" if !inline_proxy_items.is_empty() => {
+                menu_items.extend(inline_proxy_items.iter().map(|item| item.as_ref()));
+            }
+            _ => {}
         }
-        "inline" if !inline_proxy_items.is_empty() => {
-            menu_items.extend(inline_proxy_items.iter().map(|item| item.as_ref()));
-        }
-        _ => {}
     }
 
     menu_items.extend_from_slice(&[
