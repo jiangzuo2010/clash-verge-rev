@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 const MANAGED_ALLOWLIST_MODE: &str = "managed-allowlist";
@@ -20,22 +22,17 @@ pub struct EnterprisePolicy {
 pub struct EnterpriseProxy {
     pub name: String,
     #[serde(rename = "type")]
-    pub proxy_type: EnterpriseProxyType,
+    pub proxy_type: String,
     pub server: String,
     pub port: u16,
-    #[serde(default)]
-    pub tls: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum EnterpriseProxyType {
-    Http,
-    Socks5,
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -62,6 +59,7 @@ pub enum EnterprisePolicyError {
     Expired,
     InvalidRefreshInterval,
     EmptyProxyName,
+    EmptyProxyType,
     InvalidProxyName(String),
     EmptyProxyServer,
     InvalidProxyPort,
@@ -78,6 +76,7 @@ impl Display for EnterprisePolicyError {
             Self::Expired => f.write_str("enterprise policy is expired"),
             Self::InvalidRefreshInterval => f.write_str("enterprise policy refreshAfterSeconds must be greater than 0"),
             Self::EmptyProxyName => f.write_str("enterprise proxy name is empty"),
+            Self::EmptyProxyType => f.write_str("enterprise proxy type is empty"),
             Self::InvalidProxyName(name) => write!(f, "invalid enterprise proxy name: {name}"),
             Self::EmptyProxyServer => f.write_str("enterprise proxy server is empty"),
             Self::InvalidProxyPort => f.write_str("enterprise proxy port must be greater than 0"),
@@ -131,6 +130,9 @@ impl EnterpriseProxy {
         }
         if has_rule_separator(&self.name) {
             return Err(EnterprisePolicyError::InvalidProxyName(self.name.clone()));
+        }
+        if self.proxy_type.trim().is_empty() {
+            return Err(EnterprisePolicyError::EmptyProxyType);
         }
         if self.server.trim().is_empty() {
             return Err(EnterprisePolicyError::EmptyProxyServer);
@@ -200,12 +202,13 @@ mod tests {
             refresh_after_seconds: 600,
             proxy: EnterpriseProxy {
                 name: "company-proxy".into(),
-                proxy_type: EnterpriseProxyType::Http,
+                proxy_type: "http".into(),
                 server: "proxy.company.example".into(),
                 port: 443,
-                tls: true,
+                tls: Some(true),
                 username: None,
                 password: None,
+                extra: BTreeMap::new(),
             },
             allowlist: vec![
                 EnterpriseAllowRule {

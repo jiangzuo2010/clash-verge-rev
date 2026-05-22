@@ -323,7 +323,7 @@ mod tests {
     fn logout_url_uses_keycloak_realm() {
         assert_eq!(
             logout_url(&EnterpriseConfig::default()).unwrap(),
-            "http://localhost:8080/realms/staff/protocol/openid-connect/logout"
+            "https://kc-t.taxspace.cn/realms/staff/protocol/openid-connect/logout"
         );
     }
 

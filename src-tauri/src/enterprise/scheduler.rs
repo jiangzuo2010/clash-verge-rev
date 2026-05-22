@@ -17,9 +17,8 @@ pub fn next_policy_refresh_delay_secs(state: &EnterpriseState) -> u64 {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::enterprise::policy::{
-        EnterpriseAllowRule, EnterpriseAllowRuleType, EnterprisePolicy, EnterpriseProxy, EnterpriseProxyType,
-    };
+    use crate::enterprise::policy::{EnterpriseAllowRule, EnterpriseAllowRuleType, EnterprisePolicy, EnterpriseProxy};
+    use std::collections::BTreeMap;
 
     #[test]
     fn refresh_delay_uses_default_without_policy() {
@@ -41,12 +40,13 @@ mod tests {
                 refresh_after_seconds: 1,
                 proxy: EnterpriseProxy {
                     name: "company-proxy".into(),
-                    proxy_type: EnterpriseProxyType::Http,
+                    proxy_type: "http".into(),
                     server: "proxy.company.example".into(),
                     port: 443,
-                    tls: true,
+                    tls: Some(true),
                     username: None,
                     password: None,
+                    extra: BTreeMap::new(),
                 },
                 allowlist: vec![EnterpriseAllowRule {
                     rule_type: EnterpriseAllowRuleType::Domain,

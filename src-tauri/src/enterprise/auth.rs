@@ -338,8 +338,8 @@ mod tests {
         let config = EnterpriseConfig::default();
         let url = build_auth_url(&config, "state value", "challenge").unwrap();
 
-        assert!(url.starts_with("http://localhost:8080/realms/staff/protocol/openid-connect/auth?"));
-        assert!(url.contains("client_id=company%2Dproxy%2Ddesktop"));
+        assert!(url.starts_with("https://kc-t.taxspace.cn/realms/staff/protocol/openid-connect/auth?"));
+        assert!(url.contains("client_id=usp%2Denterprise%2Dproxy"));
         assert!(url.contains("redirect_uri=http%3A%2F%2F127%2E0%2E0%2E1%3A33221%2Fauth%2Fcallback"));
         assert!(url.contains("state=state%20value"));
         assert!(url.contains("code_challenge=challenge"));

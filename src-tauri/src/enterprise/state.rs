@@ -137,12 +137,12 @@ pub struct EnterprisePolicyStatus {
 impl Default for EnterpriseConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
-            iam_base_url: "http://localhost:8080".into(),
-            policy_base_url: "http://localhost:8080".into(),
-            keycloak_base_url: "http://localhost:8080".into(),
+            enabled: true,
+            iam_base_url: "https://api-t.taxspace.cn/gateway/api".into(),
+            policy_base_url: "https://api-t.taxspace.cn/gateway/api".into(),
+            keycloak_base_url: "https://kc-t.taxspace.cn".into(),
             keycloak_realm: "staff".into(),
-            keycloak_client_id: "company-proxy-desktop".into(),
+            keycloak_client_id: "usp-enterprise-proxy".into(),
             keycloak_redirect_uri: "http://127.0.0.1:33221/auth/callback".into(),
             app_code: "company-proxy-desktop".into(),
         }
@@ -271,12 +271,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_enterprise_config_is_disabled() {
+    fn default_enterprise_config_points_to_test_environment() {
         let config = EnterpriseConfig::default();
 
-        assert!(!config.enabled);
+        assert!(config.enabled);
+        assert_eq!(config.iam_base_url, "https://api-t.taxspace.cn/gateway/api");
+        assert_eq!(config.policy_base_url, "https://api-t.taxspace.cn/gateway/api");
+        assert_eq!(config.keycloak_base_url, "https://kc-t.taxspace.cn");
         assert_eq!(config.keycloak_realm, "staff");
-        assert_eq!(config.keycloak_client_id, "company-proxy-desktop");
+        assert_eq!(config.keycloak_client_id, "usp-enterprise-proxy");
+        assert_eq!(config.app_code, "company-proxy-desktop");
     }
 
     #[test]
@@ -342,12 +346,13 @@ mod tests {
             refresh_after_seconds: 600,
             proxy: super::super::policy::EnterpriseProxy {
                 name: "company-proxy".into(),
-                proxy_type: super::super::policy::EnterpriseProxyType::Http,
+                proxy_type: "http".into(),
                 server: "proxy.company.example".into(),
                 port: 443,
-                tls: true,
+                tls: Some(true),
                 username: None,
                 password: None,
+                extra: std::collections::BTreeMap::new(),
             },
             allowlist: vec![super::super::policy::EnterpriseAllowRule {
                 rule_type: super::super::policy::EnterpriseAllowRuleType::Domain,
@@ -371,12 +376,13 @@ mod tests {
                 refresh_after_seconds: 600,
                 proxy: super::super::policy::EnterpriseProxy {
                     name: "company-proxy".into(),
-                    proxy_type: super::super::policy::EnterpriseProxyType::Http,
+                    proxy_type: "http".into(),
                     server: "proxy.company.example".into(),
                     port: 443,
-                    tls: true,
+                    tls: Some(true),
                     username: None,
                     password: None,
+                    extra: std::collections::BTreeMap::new(),
                 },
                 allowlist: vec![super::super::policy::EnterpriseAllowRule {
                     rule_type: super::super::policy::EnterpriseAllowRuleType::Domain,
