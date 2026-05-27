@@ -1,4 +1,7 @@
-use super::{EnterpriseConfig, EnterpriseSession, EnterpriseState};
+use super::{
+    EnterpriseConfig, EnterpriseSession, EnterpriseState,
+    http::{secure_enterprise_client, validate_enterprise_https_url},
+};
 use anyhow::{Context as _, Result, anyhow, bail};
 use chrono::{DateTime, Duration, Utc};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
@@ -36,8 +39,10 @@ pub async fn revoke_enterprise_session(state: &EnterpriseState) -> Result<()> {
         return Ok(());
     };
 
-    let response = reqwest::Client::new()
-        .post(logout_url(&state.config)?)
+    let url = logout_url(&state.config)?;
+    validate_enterprise_https_url(&url, "enterprise logout url")?;
+    let response = secure_enterprise_client()?
+        .post(url)
         .form(&[
             ("client_id", state.config.keycloak_client_id.as_str()),
             ("refresh_token", refresh_token),
@@ -68,6 +73,12 @@ pub async fn hydrate_enterprise_user(state: &mut EnterpriseState) -> Result<()> 
     state.session.username = read_string(&current_user, "username");
     state.session.tenant_id = read_string(&current_user, "tenantId");
     state.session.tenant_code = read_string(&current_user, "tenantCode");
+    state.session.is_super_admin = current_user
+        .get("isSuperAdmin")
+        .and_then(Value::as_bool)
+        .unwrap_or_default();
+    state.session.permissions = read_string_list(&current_user, "permissions", &["permissionCode", "code"]);
+    state.session.roles = read_string_list(&current_user, "roles", &["roleCode", "code", "name"]);
     Ok(())
 }
 
@@ -111,9 +122,11 @@ async fn ensure_access_token(state: &mut EnterpriseState) -> Result<()> {
 }
 
 async fn refresh_access_token(config: &EnterpriseConfig, refresh_token: &str) -> Result<TokenResponse> {
-    let client = reqwest::Client::new();
+    let url = token_url(config)?;
+    validate_enterprise_https_url(&url, "enterprise token url")?;
+    let client = secure_enterprise_client()?;
     let response = client
-        .post(token_url(config)?)
+        .post(url)
         .form(&[
             ("grant_type", "refresh_token"),
             ("client_id", config.keycloak_client_id.as_str()),
@@ -136,8 +149,10 @@ async fn refresh_access_token(config: &EnterpriseConfig, refresh_token: &str) ->
 }
 
 async fn fetch_current_user(config: &EnterpriseConfig, access_token: &str) -> Result<Value> {
-    let response = reqwest::Client::new()
-        .get(iam_me_url(&config.iam_base_url)?)
+    let url = iam_me_url(&config.iam_base_url)?;
+    validate_enterprise_https_url(&url, "enterprise current user url")?;
+    let response = secure_enterprise_client()?
+        .get(url)
         .bearer_auth(access_token)
         .header("Accept", "application/json")
         .header("X-App-Code", &config.app_code)
@@ -168,8 +183,10 @@ async fn ensure_app_authorized(config: &EnterpriseConfig, access_token: &str) ->
 }
 
 async fn fetch_authorized_apps(config: &EnterpriseConfig, access_token: &str) -> Result<Vec<String>> {
-    let response = reqwest::Client::new()
-        .get(iam_me_apps_url(&config.iam_base_url)?)
+    let url = iam_me_apps_url(&config.iam_base_url)?;
+    validate_enterprise_https_url(&url, "enterprise authorized apps url")?;
+    let response = secure_enterprise_client()?
+        .get(url)
         .bearer_auth(access_token)
         .header("Accept", "application/json")
         .header("X-App-Code", &config.app_code)
@@ -277,6 +294,22 @@ fn read_string(value: &Value, key: &str) -> Option<String> {
     })
 }
 
+fn read_string_list(value: &Value, key: &str, object_keys: &[&str]) -> Vec<String> {
+    let Some(items) = value.get(key).and_then(Value::as_array) else {
+        return Vec::new();
+    };
+
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Value::String(text) if !text.trim().is_empty() => Some(text.clone()),
+            Value::Number(number) => Some(number.to_string()),
+            Value::Object(_) => object_keys.iter().find_map(|object_key| read_string(item, object_key)),
+            _ => None,
+        })
+        .collect()
+}
+
 fn encode(value: &str) -> String {
     utf8_percent_encode(value, NON_ALPHANUMERIC).to_string()
 }
@@ -335,7 +368,14 @@ mod tests {
                 "id": 7,
                 "username": "alice",
                 "tenantId": 3,
-                "tenantCode": "taxspace"
+                "tenantCode": "taxspace",
+                "permissions": [
+                    "company-proxy-desktop:advanced",
+                    { "permissionCode": "workspace:enterprise-proxy:manage" }
+                ],
+                "roles": [
+                    { "roleCode": "ENTERPRISE_PROXY_ADMIN" }
+                ]
             }
         }))
         .unwrap();
@@ -343,6 +383,14 @@ mod tests {
         assert_eq!(read_string(&data, "id").as_deref(), Some("7"));
         assert_eq!(read_string(&data, "username").as_deref(), Some("alice"));
         assert_eq!(read_string(&data, "tenantId").as_deref(), Some("3"));
+        assert_eq!(
+            read_string_list(&data, "permissions", &["permissionCode"]),
+            vec!["company-proxy-desktop:advanced", "workspace:enterprise-proxy:manage"]
+        );
+        assert_eq!(
+            read_string_list(&data, "roles", &["roleCode"]),
+            vec!["ENTERPRISE_PROXY_ADMIN"]
+        );
     }
 
     #[test]

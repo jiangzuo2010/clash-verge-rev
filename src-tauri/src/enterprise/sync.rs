@@ -1,9 +1,23 @@
-use super::{EnterprisePolicy, EnterpriseState, refresh_enterprise_session_if_needed};
+use super::{
+    EnterprisePolicy, EnterpriseState,
+    http::{is_loopback_enterprise_url, secure_enterprise_client, validate_enterprise_https_url},
+    refresh_enterprise_session_if_needed,
+};
+use aes_gcm::{
+    Aes256Gcm, Nonce,
+    aead::{Aead, KeyInit, Payload},
+};
 use anyhow::{Context as _, Result, anyhow, bail};
+use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
+use hmac::{Hmac, Mac};
+use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 const POLICY_PATH: &str = "/enterprise/proxy/policy";
+const POLICY_CRYPTO_DEFAULT_SECRET: &str = "chineuro-enterprise-policy-transport-secret-v1";
+const POLICY_CRYPTO_ALGORITHM: &str = "AES-256-GCM";
 
 pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
     let mut state = refresh_enterprise_session_if_needed().await?;
@@ -25,10 +39,11 @@ async fn fetch_policy(policy_base_url: &str, access_token: &str, app_code: &str)
     if app_code.is_empty() {
         bail!("enterprise app code is empty");
     }
+    validate_enterprise_https_url(&url, "enterprise policy url")?;
 
-    let client = reqwest::Client::builder().build()?;
+    let client = secure_enterprise_client()?;
     let response = client
-        .get(url)
+        .get(&url)
         .bearer_auth(access_token)
         .header("Accept", "application/json")
         .header("X-App-Code", app_code)
@@ -45,7 +60,7 @@ async fn fetch_policy(policy_base_url: &str, access_token: &str, app_code: &str)
         .json::<Value>()
         .await
         .context("failed to decode enterprise policy")?;
-    decode_policy_response(value)
+    decode_policy_response(value, !is_loopback_enterprise_url(&url)?)
 }
 
 fn policy_url(policy_base_url: &str) -> Result<String> {
@@ -63,8 +78,22 @@ pub fn now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
 
-fn decode_policy_response(value: Value) -> Result<EnterprisePolicy> {
+fn decode_policy_response(value: Value, require_encrypted: bool) -> Result<EnterprisePolicy> {
     let value = unwrap_result_payload(value)?;
+    if value
+        .as_object()
+        .and_then(|map| map.get("encrypted"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        let envelope: EnterpriseEncryptedPolicyEnvelope =
+            serde_json::from_value(value).context("failed to decode encrypted enterprise policy envelope")?;
+        let decrypted = decrypt_policy_envelope(&envelope)?;
+        return serde_json::from_slice(&decrypted).context("failed to decode decrypted enterprise policy");
+    }
+    if require_encrypted {
+        bail!("enterprise policy response must be encrypted");
+    }
     serde_json::from_value(value).context("failed to decode enterprise policy")
 }
 
@@ -90,6 +119,93 @@ fn unwrap_result_payload(value: Value) -> Result<Value> {
     map.get("data")
         .cloned()
         .ok_or_else(|| anyhow!("enterprise policy response is missing data"))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EnterpriseEncryptedPolicyEnvelope {
+    encrypted: bool,
+    algorithm: String,
+    key_id: String,
+    issued_at: String,
+    nonce: String,
+    ciphertext: String,
+    signature: String,
+}
+
+fn decrypt_policy_envelope(envelope: &EnterpriseEncryptedPolicyEnvelope) -> Result<Vec<u8>> {
+    if !envelope.encrypted {
+        bail!("enterprise policy envelope is not encrypted");
+    }
+    if envelope.algorithm != POLICY_CRYPTO_ALGORITHM {
+        bail!(
+            "unsupported enterprise policy encryption algorithm: {}",
+            envelope.algorithm
+        );
+    }
+
+    verify_policy_signature(envelope)?;
+
+    let nonce_bytes = general_purpose::STANDARD
+        .decode(&envelope.nonce)
+        .context("invalid enterprise policy nonce")?;
+    if nonce_bytes.len() != 12 {
+        bail!("invalid enterprise policy nonce length");
+    }
+    let ciphertext = general_purpose::STANDARD
+        .decode(&envelope.ciphertext)
+        .context("invalid enterprise policy ciphertext")?;
+
+    let key = derive_policy_key("aes-256-gcm");
+    let cipher = Aes256Gcm::new_from_slice(&key).context("invalid enterprise policy crypto key")?;
+    let aad = policy_aad(&envelope.key_id, &envelope.issued_at, &envelope.nonce);
+    cipher
+        .decrypt(
+            Nonce::from_slice(&nonce_bytes),
+            Payload {
+                msg: &ciphertext,
+                aad: aad.as_bytes(),
+            },
+        )
+        .map_err(|_| anyhow!("failed to decrypt enterprise policy"))
+}
+
+fn verify_policy_signature(envelope: &EnterpriseEncryptedPolicyEnvelope) -> Result<()> {
+    let expected = general_purpose::STANDARD
+        .decode(&envelope.signature)
+        .context("invalid enterprise policy signature")?;
+    let payload = policy_signature_payload(
+        &envelope.key_id,
+        &envelope.issued_at,
+        &envelope.nonce,
+        &envelope.ciphertext,
+    );
+    let key = derive_policy_key("hmac-sha256");
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&key).context("invalid enterprise policy signing key")?;
+    mac.update(payload.as_bytes());
+    mac.verify_slice(&expected)
+        .map_err(|_| anyhow!("enterprise policy signature verification failed"))
+}
+
+fn derive_policy_key(usage: &str) -> [u8; 32] {
+    let secret = std::env::var("ENTERPRISE_POLICY_CRYPTO_SECRET")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            option_env!("ENTERPRISE_POLICY_CRYPTO_SECRET")
+                .filter(|value| !value.trim().is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| POLICY_CRYPTO_DEFAULT_SECRET.into());
+    Sha256::digest(format!("{secret}:{usage}").as_bytes()).into()
+}
+
+fn policy_aad(key_id: &str, issued_at: &str, nonce: &str) -> String {
+    [key_id, issued_at, nonce].join(".")
+}
+
+fn policy_signature_payload(key_id: &str, issued_at: &str, nonce: &str, ciphertext: &str) -> String {
+    [key_id, issued_at, nonce, ciphertext].join(".")
 }
 
 #[cfg(test)]
@@ -121,10 +237,39 @@ mod tests {
 
     #[test]
     fn decode_policy_response_accepts_result_wrapper() {
-        let policy = decode_policy_response(json!({
-            "code": "000000",
-            "message": "success",
-            "data": {
+        let policy = decode_policy_response(
+            json!({
+                "code": "000000",
+                "message": "success",
+                "data": {
+                    "version": "2026.05.11.1",
+                    "mode": "managed-allowlist",
+                    "expiresAt": "2099-01-01T00:00:00Z",
+                    "refreshAfterSeconds": 300,
+                    "proxy": {
+                        "name": "company-proxy",
+                        "type": "http",
+                        "server": "proxy.company.example",
+                        "port": 443,
+                        "tls": true
+                    },
+                    "allowlist": [
+                        { "type": "domain", "value": "docs.company.example" }
+                    ]
+                }
+            }),
+            false,
+        )
+        .expect("wrapped policy should decode");
+
+        assert_eq!(policy.version, "2026.05.11.1");
+        assert_eq!(policy.allowlist.len(), 1);
+    }
+
+    #[test]
+    fn decode_policy_response_accepts_plain_policy() {
+        let policy = decode_policy_response(
+            json!({
                 "version": "2026.05.11.1",
                 "mode": "managed-allowlist",
                 "expiresAt": "2099-01-01T00:00:00Z",
@@ -139,34 +284,36 @@ mod tests {
                 "allowlist": [
                     { "type": "domain", "value": "docs.company.example" }
                 ]
-            }
-        }))
-        .expect("wrapped policy should decode");
-
-        assert_eq!(policy.version, "2026.05.11.1");
-        assert_eq!(policy.allowlist.len(), 1);
-    }
-
-    #[test]
-    fn decode_policy_response_accepts_plain_policy() {
-        let policy = decode_policy_response(json!({
-            "version": "2026.05.11.1",
-            "mode": "managed-allowlist",
-            "expiresAt": "2099-01-01T00:00:00Z",
-            "refreshAfterSeconds": 300,
-            "proxy": {
-                "name": "company-proxy",
-                "type": "http",
-                "server": "proxy.company.example",
-                "port": 443,
-                "tls": true
-            },
-            "allowlist": [
-                { "type": "domain", "value": "docs.company.example" }
-            ]
-        }))
+            }),
+            false,
+        )
         .expect("plain policy should decode");
 
         assert_eq!(policy.version, "2026.05.11.1");
+    }
+
+    #[test]
+    fn decode_policy_response_rejects_plain_policy_when_encryption_required() {
+        let result = decode_policy_response(
+            json!({
+                "version": "2026.05.11.1",
+                "mode": "managed-allowlist",
+                "expiresAt": "2099-01-01T00:00:00Z",
+                "refreshAfterSeconds": 300,
+                "proxy": {
+                    "name": "company-proxy",
+                    "type": "http",
+                    "server": "proxy.company.example",
+                    "port": 443,
+                    "tls": true
+                },
+                "allowlist": [
+                    { "type": "domain", "value": "docs.company.example" }
+                ]
+            }),
+            true,
+        );
+
+        assert!(result.is_err());
     }
 }

@@ -2,6 +2,7 @@ import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { useTranslation } from 'react-i18next'
+import { Navigate } from 'react-router'
 
 import { BasePage } from '@/components/base'
 import SettingClash from '@/components/setting/setting-clash'
@@ -11,6 +12,7 @@ import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { openWebUrl } from '@/services/cmds'
+import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
 
@@ -37,6 +39,35 @@ const SettingPage = () => {
   const isDark = mode === 'light' ? false : true
   const { enterprise } = useEnterprise()
   const enterpriseManaged = enterprise?.config.enabled ?? false
+  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
+  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
+
+  if (
+    enterpriseManaged &&
+    enterpriseAuthenticated &&
+    !enterpriseAdvancedAccess
+  ) {
+    return <Navigate to="/" replace />
+  }
+
+  if (enterpriseManaged && !enterpriseAuthenticated) {
+    return (
+      <BasePage title="ChinEuro Secure Access">
+        <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>
+          <Grid size={{ xs: 6, md: 8 }} offset={{ md: 2 }}>
+            <Box
+              sx={{
+                borderRadius: 2,
+                backgroundColor: isDark ? '#282a36' : '#ffffff',
+              }}
+            >
+              <SettingEnterprise onError={onError} />
+            </Box>
+          </Grid>
+        </Grid>
+      </BasePage>
+    )
+  }
 
   return (
     <BasePage

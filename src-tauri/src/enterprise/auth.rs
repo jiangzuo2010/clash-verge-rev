@@ -1,6 +1,9 @@
 use super::{
-    EnterprisePendingAuth, EnterpriseSession, EnterpriseState, session::hydrate_enterprise_user,
-    state::EnterpriseConfig, sync::now_rfc3339,
+    EnterprisePendingAuth, EnterpriseSession, EnterpriseState,
+    http::{secure_enterprise_client, validate_enterprise_https_url},
+    session::hydrate_enterprise_user,
+    state::EnterpriseConfig,
+    sync::now_rfc3339,
 };
 use anyhow::{Context as _, Result, bail};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -136,6 +139,7 @@ pub fn shutdown_enterprise_login_callback() {
 
 fn build_auth_url(config: &EnterpriseConfig, state: &str, code_challenge: &str) -> Result<String> {
     let base = trim_url(&config.keycloak_base_url)?;
+    validate_enterprise_https_url(base, "enterprise authorization base url")?;
     let realm = encode(&config.keycloak_realm);
     let client_id = encode(&config.keycloak_client_id);
     let redirect_uri = encode(&config.keycloak_redirect_uri);
@@ -158,7 +162,8 @@ async fn exchange_code_for_token(
         trim_url(&config.keycloak_base_url)?,
         encode(&config.keycloak_realm)
     );
-    let client = reqwest::Client::new();
+    validate_enterprise_https_url(&token_url, "enterprise token url")?;
+    let client = secure_enterprise_client()?;
     let response = client
         .post(token_url)
         .form(&[

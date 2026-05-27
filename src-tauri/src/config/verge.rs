@@ -390,13 +390,13 @@ impl IVerge {
             env_type: Some("bash".into()),
             #[cfg(target_os = "windows")]
             env_type: Some("powershell".into()),
-            start_page: Some("/".into()),
+            start_page: Some("/settings".into()),
             traffic_graph: Some(true),
             enable_memory_usage: Some(true),
             enable_group_icon: Some(true),
             pause_render_traffic_stats_on_blur: Some(true),
             #[cfg(target_os = "macos")]
-            tray_icon: Some("monochrome".into()),
+            tray_icon: Some("colorful".into()),
             menu_icon: Some("monochrome".into()),
             notice_position: Some("top-right".into()),
             collapse_navbar: Some(false),

@@ -12,15 +12,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import {
-  Box,
-  List,
-  Menu,
-  MenuItem,
-  Paper,
-  SvgIcon,
-  ThemeProvider,
-} from '@mui/material'
+import { Box, List, Menu, MenuItem, Paper, ThemeProvider } from '@mui/material'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import type { CSSProperties } from 'react'
@@ -28,9 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 
-import iconDark from '@/assets/image/icon_dark.svg?react'
-import iconLight from '@/assets/image/icon_light.svg?react'
-import LogoSvg from '@/assets/image/logo.svg?react'
+import appLogo from '@/assets/image/app_logo.png'
 import { BaseErrorBoundary } from '@/components/base'
 import { LayoutItem } from '@/components/layout/layout-item'
 import { LayoutTraffic } from '@/components/layout/layout-traffic'
@@ -41,6 +31,7 @@ import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowDecorations } from '@/hooks/use-window'
+import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { useThemeMode } from '@/services/states'
 import getSystem from '@/utils/get-system'
 
@@ -63,7 +54,15 @@ type NavItem = (typeof navItems)[number]
 
 type MenuContextPosition = { top: number; left: number }
 
-const ENTERPRISE_RESTRICTED_PATHS = new Set(['/profile', '/unlock'])
+const ENTERPRISE_BASE_PATHS = new Set(['/'])
+const ENTERPRISE_ALWAYS_RESTRICTED_PATHS = new Set(['/profile', '/unlock'])
+const ENTERPRISE_ADVANCED_PATHS = new Set([
+  '/proxies',
+  '/connections',
+  '/rules',
+  '/logs',
+  '/settings',
+])
 const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/settings'])
 
 interface SortableNavMenuItemProps {
@@ -128,6 +127,7 @@ const Layout = () => {
   const isLogsPage = pathname === '/logs'
   const enterpriseManaged = enterprise?.config.enabled ?? false
   const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
+  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
@@ -186,8 +186,21 @@ const Layout = () => {
     if (!enterpriseAuthenticated) {
       return menuOrder.filter((path) => ENTERPRISE_SIGNED_OUT_PATHS.has(path))
     }
-    return menuOrder.filter((path) => !ENTERPRISE_RESTRICTED_PATHS.has(path))
-  }, [enterpriseAuthenticated, enterpriseManaged, menuOrder])
+    return menuOrder.filter((path) => {
+      if (ENTERPRISE_BASE_PATHS.has(path)) {
+        return true
+      }
+      if (ENTERPRISE_ADVANCED_PATHS.has(path)) {
+        return enterpriseAdvancedAccess
+      }
+      return false
+    })
+  }, [
+    enterpriseAdvancedAccess,
+    enterpriseAuthenticated,
+    enterpriseManaged,
+    menuOrder,
+  ])
 
   const handleMenuContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
@@ -265,11 +278,18 @@ const Layout = () => {
     if (
       enterpriseManaged &&
       enterpriseAuthenticated &&
-      ENTERPRISE_RESTRICTED_PATHS.has(pathname)
+      (ENTERPRISE_ALWAYS_RESTRICTED_PATHS.has(pathname) ||
+        (ENTERPRISE_ADVANCED_PATHS.has(pathname) && !enterpriseAdvancedAccess))
     ) {
-      navigate('/settings', { replace: true })
+      navigate('/', { replace: true })
     }
-  }, [enterpriseAuthenticated, enterpriseManaged, navigate, pathname])
+  }, [
+    enterpriseAdvancedAccess,
+    enterpriseAuthenticated,
+    enterpriseManaged,
+    navigate,
+    pathname,
+  ])
 
   useEffect(() => {
     if (language) {
@@ -357,18 +377,32 @@ const Layout = () => {
                   justifyContent: 'space-between',
                 }}
               >
-                <SvgIcon
-                  component={isDark ? iconDark : iconLight}
+                <Box
+                  component="img"
+                  src={appLogo}
+                  alt="ChinEuro Secure Access"
                   style={{
                     height: '36px',
                     width: '36px',
                     marginTop: '-3px',
                     marginRight: '5px',
                     marginLeft: '-3px',
+                    borderRadius: '8px',
                   }}
-                  inheritViewBox
                 />
-                <LogoSvg fill={isDark ? 'white' : 'black'} />
+                <Box
+                  component="span"
+                  sx={{
+                    alignSelf: 'center',
+                    color: isDark ? 'white' : 'black',
+                    fontFamily: "Georgia, 'Times New Roman', serif",
+                    fontSize: 18,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                  }}
+                >
+                  ChinEuro Secure Access
+                </Box>
               </div>
               <UpdateButton className="the-newbtn" />
             </div>

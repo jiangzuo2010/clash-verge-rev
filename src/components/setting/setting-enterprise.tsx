@@ -1,5 +1,4 @@
 import {
-  BusinessRounded,
   ScienceRounded,
   LoginRounded,
   LogoutRounded,
@@ -19,6 +18,7 @@ import {
   type EnterpriseConfigPatch,
   syncEnterprisePolicy,
 } from '@/services/enterprise'
+import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { showNotice } from '@/services/notice-service'
 
 interface Props {
@@ -82,6 +82,9 @@ const SettingEnterprise = ({ onError }: Props) => {
 
   const enabled = config?.enabled ?? false
   const authenticated = session?.authenticated ?? false
+  const showLocalMock = import.meta.env.DEV
+  const showAdvancedControls =
+    import.meta.env.DEV || hasEnterpriseAdvancedAccess(enterprise)
 
   const onToggle = useLockFn(async (next: boolean) => {
     try {
@@ -149,7 +152,7 @@ const SettingEnterprise = ({ onError }: Props) => {
   const onSyncPolicy = useLockFn(async () => {
     try {
       await syncAndApplyPolicy(refetchEnterprise)
-      showNotice.success('企业策略已同步')
+      showNotice.success('连接配置已同步')
     } catch (err: any) {
       onError(err)
       throw err
@@ -168,136 +171,149 @@ const SettingEnterprise = ({ onError }: Props) => {
   return (
     <SettingList title="企业代理">
       <SettingItem
-        label="受管模式"
+        label="登录状态"
         extra={
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<ScienceRounded />}
-              onClick={onUseLocalMock}
-            >
-              本地 Mock
-            </Button>
+            {showLocalMock && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ScienceRounded />}
+                onClick={onUseLocalMock}
+              >
+                本地 Mock
+              </Button>
+            )}
             <Chip
               size="small"
               color={
                 authenticated ? 'success' : enabled ? 'warning' : 'default'
               }
-              label={authenticated ? '已登录' : enabled ? '待登录' : '未启用'}
+              label={authenticated ? '已登录' : enabled ? '未登录' : '未启用'}
               sx={{ ml: 1 }}
             />
           </Stack>
         }
       >
-        <Switch
-          edge="end"
-          checked={enabled}
-          onChange={(_, checked) => onToggle(checked)}
-        />
+        {showAdvancedControls && (
+          <Switch
+            edge="end"
+            checked={enabled}
+            onChange={(_, checked) => onToggle(checked)}
+          />
+        )}
       </SettingItem>
+
+      {showAdvancedControls && (
+        <>
+          <SettingItem label="IAM 地址">
+            <EnterpriseTextField
+              value={config?.iamBaseUrl ?? ''}
+              disabled={!enabled}
+              width={260}
+              onCommit={(value) => onPatchText('iamBaseUrl', value)}
+            />
+          </SettingItem>
+
+          <SettingItem label="策略地址">
+            <EnterpriseTextField
+              value={config?.policyBaseUrl ?? ''}
+              disabled={!enabled}
+              width={260}
+              onCommit={(value) => onPatchText('policyBaseUrl', value)}
+            />
+          </SettingItem>
+
+          <SettingItem label="Keycloak 地址">
+            <EnterpriseTextField
+              value={config?.keycloakBaseUrl ?? ''}
+              disabled={!enabled}
+              width={260}
+              onCommit={(value) => onPatchText('keycloakBaseUrl', value)}
+            />
+          </SettingItem>
+
+          <SettingItem label="Realm / Client">
+            <Stack direction="row" spacing={1}>
+              <EnterpriseTextField
+                value={config?.keycloakRealm ?? ''}
+                disabled={!enabled}
+                width={110}
+                onCommit={(value) => onPatchText('keycloakRealm', value)}
+              />
+              <EnterpriseTextField
+                value={config?.keycloakClientId ?? ''}
+                disabled={!enabled}
+                width={145}
+                onCommit={(value) => onPatchText('keycloakClientId', value)}
+              />
+            </Stack>
+          </SettingItem>
+
+          <SettingItem label="授权回调">
+            <EnterpriseTextField
+              value={config?.keycloakRedirectUri ?? ''}
+              disabled={!enabled}
+              width={260}
+              onCommit={(value) => onPatchText('keycloakRedirectUri', value)}
+            />
+          </SettingItem>
+
+          <SettingItem label="应用编码">
+            <EnterpriseTextField
+              value={config?.appCode ?? ''}
+              disabled={!enabled}
+              width={260}
+              onCommit={(value) => onPatchText('appCode', value)}
+            />
+          </SettingItem>
+        </>
+      )}
 
       <SettingItem
-        label="IAM 地址"
-        extra={<BusinessRounded fontSize="small" />}
-      >
-        <EnterpriseTextField
-          value={config?.iamBaseUrl ?? ''}
-          disabled={!enabled}
-          width={260}
-          onCommit={(value) => onPatchText('iamBaseUrl', value)}
-        />
-      </SettingItem>
-
-      <SettingItem label="策略地址">
-        <EnterpriseTextField
-          value={config?.policyBaseUrl ?? ''}
-          disabled={!enabled}
-          width={260}
-          onCommit={(value) => onPatchText('policyBaseUrl', value)}
-        />
-      </SettingItem>
-
-      <SettingItem label="Keycloak 地址">
-        <EnterpriseTextField
-          value={config?.keycloakBaseUrl ?? ''}
-          disabled={!enabled}
-          width={260}
-          onCommit={(value) => onPatchText('keycloakBaseUrl', value)}
-        />
-      </SettingItem>
-
-      <SettingItem label="Realm / Client">
-        <Stack direction="row" spacing={1}>
-          <EnterpriseTextField
-            value={config?.keycloakRealm ?? ''}
-            disabled={!enabled}
-            width={110}
-            onCommit={(value) => onPatchText('keycloakRealm', value)}
-          />
-          <EnterpriseTextField
-            value={config?.keycloakClientId ?? ''}
-            disabled={!enabled}
-            width={145}
-            onCommit={(value) => onPatchText('keycloakClientId', value)}
-          />
-        </Stack>
-      </SettingItem>
-
-      <SettingItem label="授权回调">
-        <EnterpriseTextField
-          value={config?.keycloakRedirectUri ?? ''}
-          disabled={!enabled}
-          width={260}
-          onCommit={(value) => onPatchText('keycloakRedirectUri', value)}
-        />
-      </SettingItem>
-
-      <SettingItem label="应用编码">
-        <EnterpriseTextField
-          value={config?.appCode ?? ''}
-          disabled={!enabled}
-          width={260}
-          onCommit={(value) => onPatchText('appCode', value)}
-        />
-      </SettingItem>
-
-      <SettingItem
-        label="登录"
-        secondary={session?.accessTokenExpiresAt ?? undefined}
+        label={authenticated ? '企业账号' : '企业登录'}
+        secondary={
+          authenticated ? (session?.username ?? '已完成登录') : undefined
+        }
       >
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<LoginRounded />}
-            disabled={!enabled}
-            onClick={onStartLogin}
-          >
-            打开
-          </Button>
-          <TextField
-            size="small"
-            placeholder="code / URL"
-            value={authCode}
-            disabled={!enabled}
-            onChange={(event) => setAuthCode(event.target.value)}
-            sx={{ width: 120 }}
-          />
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={!enabled || !authCode.trim()}
-            onClick={onCompleteLogin}
-          >
-            完成
-          </Button>
+          {!authenticated && (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<LoginRounded />}
+              disabled={!enabled}
+              onClick={onStartLogin}
+            >
+              登录
+            </Button>
+          )}
+          {import.meta.env.DEV && (
+            <>
+              <TextField
+                size="small"
+                placeholder="code / URL"
+                value={authCode}
+                disabled={!enabled}
+                onChange={(event) => setAuthCode(event.target.value)}
+                sx={{ width: 120 }}
+              />
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={!enabled || !authCode.trim()}
+                onClick={onCompleteLogin}
+              >
+                完成
+              </Button>
+            </>
+          )}
         </Stack>
       </SettingItem>
 
       <SettingItem
-        label="策略"
-        secondary={policy ? `${policy.version} / ${policy.syncedAt}` : '未同步'}
+        label="连接配置"
+        secondary={policy ? `已同步 ${policy.syncedAt}` : '待同步'}
       >
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -307,7 +323,7 @@ const SettingEnterprise = ({ onError }: Props) => {
             disabled={!authenticated}
             onClick={onSyncPolicy}
           >
-            同步
+            同步配置
           </Button>
           <Button
             size="small"

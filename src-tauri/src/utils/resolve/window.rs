@@ -2,7 +2,10 @@ use dark_light::{Mode as SystemTheme, detect as detect_system_theme};
 use tauri::utils::config::Color;
 use tauri::{Theme, WebviewWindow};
 
-use crate::{config::Config, core::handle, utils::resolve::window_script::build_window_initial_script};
+use crate::{
+    config::Config, core::handle, enterprise::EnterpriseState,
+    utils::resolve::window_script::build_window_initial_script,
+};
 use clash_verge_logging::{Type, logging_error};
 
 const DARK_BACKGROUND_COLOR: Color = Color(46, 48, 61, 255); // #2E303D
@@ -28,7 +31,12 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
 
     let config = Config::verge().await;
     let latest = config.latest_arc();
-    let start_page = latest.start_page.as_deref().unwrap_or("/");
+    let enterprise_state = EnterpriseState::load().await;
+    let start_page = if enterprise_state.config.enabled && !enterprise_state.session.authenticated {
+        "/settings"
+    } else {
+        latest.start_page.as_deref().unwrap_or("/settings")
+    };
     let initial_theme_mode = match latest.theme_mode.as_deref() {
         Some("dark") => "dark",
         Some("light") => "light",
@@ -60,7 +68,7 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
         "main", /* the unique window label */
         tauri::WebviewUrl::App(start_page.into()),
     )
-    .title("Clash Verge")
+    .title("ChinEuro Secure Access")
     .center()
     .decorations(DEFAULT_DECORATIONS)
     .fullscreen(false)

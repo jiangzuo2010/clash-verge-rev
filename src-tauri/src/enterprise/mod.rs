@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+mod http;
 pub mod policy;
 pub mod runtime;
 pub mod scheduler;

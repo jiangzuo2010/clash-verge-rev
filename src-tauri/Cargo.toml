@@ -1,11 +1,11 @@
 [package]
-name = "clash-verge"
+name = "chineuro-proxy"
 version = "2.5.0-rc"
-description = "clash verge"
+description = "ChinEuro Secure Access"
 authors = ["zzzgydi", "Tunglies", "wonfen", "MystiPanda"]
 license = "GPL-3.0-only"
 repository = "https://github.com/clash-verge-rev/clash-verge-rev.git"
-default-run = "clash-verge"
+default-run = "chineuro-proxy"
 build = "build.rs"
 edition = "2024"
 rust-version = "1.91"
@@ -24,7 +24,7 @@ clippy = ["tauri/test"]
 tracing = []
 
 [package.metadata.bundle]
-identifier = "io.github.clash-verge-rev.clash-verge-rev"
+identifier = "com.chineuro.enterprise-proxy"
 
 [build-dependencies]
 tauri-build = { version = "2.5.6", features = [] }
@@ -86,6 +86,7 @@ reqwest_dav = "0.3.3"
 aes-gcm = { version = "0.10.3", features = ["std"] }
 base64 = "0.22.1"
 getrandom = "0.4.2"
+hmac = "0.12.1"
 sha2 = "0.10.9"
 futures = "0.3.32"
 gethostname = "1.1.0"

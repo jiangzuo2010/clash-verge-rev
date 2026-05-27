@@ -1,4 +1,4 @@
-use super::policy::EnterprisePolicy;
+use super::policy::{EnterpriseAllowRuleType, EnterprisePolicy};
 use crate::{
     config::{deserialize_encrypted, serialize_encrypted},
     utils::{dirs, help},
@@ -27,6 +27,8 @@ pub struct EnterpriseStateView {
     pub session: EnterpriseSessionView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_status: Option<EnterprisePolicyStatus>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_resources: Vec<EnterpriseAllowedResource>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -59,6 +61,11 @@ pub struct EnterpriseConfigPatch {
 #[serde(rename_all = "camelCase")]
 pub struct EnterpriseSession {
     pub authenticated: bool,
+    pub is_super_admin: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub permissions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,6 +98,11 @@ pub struct EnterpriseSession {
 #[serde(rename_all = "camelCase")]
 pub struct EnterpriseSessionView {
     pub authenticated: bool,
+    pub is_super_admin: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub permissions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -132,6 +144,14 @@ pub struct EnterprisePolicyStatus {
     pub mode: String,
     pub expires_at: String,
     pub synced_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct EnterpriseAllowedResource {
+    #[serde(rename = "type")]
+    pub rule_type: String,
+    pub value: String,
 }
 
 impl Default for EnterpriseConfig {
@@ -230,6 +250,9 @@ impl EnterpriseState {
             config: self.config.clone(),
             session: EnterpriseSessionView {
                 authenticated: self.session.authenticated,
+                is_super_admin: self.session.is_super_admin,
+                permissions: self.session.permissions.clone(),
+                roles: self.session.roles.clone(),
                 user_id: self.session.user_id.clone(),
                 username: self.session.username.clone(),
                 tenant_id: self.session.tenant_id.clone(),
@@ -242,6 +265,26 @@ impl EnterpriseState {
                 expires_at: cached.policy.expires_at.clone(),
                 synced_at: cached.synced_at.clone(),
             }),
+            allowed_resources: self
+                .cached_policy
+                .as_ref()
+                .map(|cached| {
+                    cached
+                        .policy
+                        .allowlist
+                        .iter()
+                        .map(|rule| EnterpriseAllowedResource {
+                            rule_type: match rule.rule_type {
+                                EnterpriseAllowRuleType::Domain => "domain",
+                                EnterpriseAllowRuleType::DomainSuffix => "domain_suffix",
+                                EnterpriseAllowRuleType::IpCidr => "ip_cidr",
+                            }
+                            .into(),
+                            value: rule.value.clone(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
 }
@@ -320,6 +363,40 @@ mod tests {
 
         assert!(view.session.authenticated);
         assert_eq!(view.session.username.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn state_view_exposes_allowed_resources_without_proxy_details() {
+        let mut state = EnterpriseState::default();
+        state.cached_policy = Some(EnterpriseCachedPolicy {
+            synced_at: "2026-05-11T00:00:00Z".into(),
+            policy: EnterprisePolicy {
+                version: "v1".into(),
+                mode: "managed-allowlist".into(),
+                expires_at: "2099-01-01T00:00:00Z".into(),
+                refresh_after_seconds: 600,
+                proxy: super::super::policy::EnterpriseProxy {
+                    name: "company-proxy".into(),
+                    proxy_type: "http".into(),
+                    server: "proxy.company.example".into(),
+                    port: 443,
+                    tls: Some(true),
+                    username: None,
+                    password: None,
+                    extra: std::collections::BTreeMap::new(),
+                },
+                allowlist: vec![super::super::policy::EnterpriseAllowRule {
+                    rule_type: super::super::policy::EnterpriseAllowRuleType::DomainSuffix,
+                    value: ".corp.company.example".into(),
+                }],
+            },
+        });
+
+        let view = state.to_view();
+
+        assert_eq!(view.allowed_resources.len(), 1);
+        assert_eq!(view.allowed_resources[0].rule_type, "domain_suffix");
+        assert_eq!(view.allowed_resources[0].value, ".corp.company.example");
     }
 
     #[test]

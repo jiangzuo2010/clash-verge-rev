@@ -37,6 +37,7 @@ import { useEnterprise } from '@/hooks/use-enterprise'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
 import { entry_lightweight_mode, openWebUrl } from '@/services/cmds'
+import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 
 const LazyTestCard = lazy(() =>
   import('@/components/home/test-card').then((module) => ({
@@ -216,6 +217,7 @@ const HomePage = () => {
   const { enterprise } = useEnterprise()
   const { current, mutateProfiles } = useProfiles()
   const enterpriseManaged = enterprise?.config.enabled ?? false
+  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
 
   // 设置弹窗的状态
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -288,8 +290,12 @@ const HomePage = () => {
     [effectiveHomeCards],
   )
 
-  const criticalCards = useMemo(
-    () => [
+  const criticalCards = useMemo(() => {
+    if (enterpriseManaged && !enterpriseAdvancedAccess) {
+      return [renderCard('profile', <EnterpriseStatusCard />, 12)]
+    }
+
+    return [
       enterpriseManaged
         ? renderCard('profile', <EnterpriseStatusCard />)
         : renderCard(
@@ -302,9 +308,14 @@ const HomePage = () => {
       renderCard('proxy', <CurrentProxyCard />),
       enterpriseManaged ? null : renderCard('network', <NetworkSettingsCard />),
       renderCard('mode', <ClashModeEnhancedCard />),
-    ],
-    [current, enterpriseManaged, mutateProfiles, renderCard],
-  )
+    ]
+  }, [
+    current,
+    enterpriseAdvancedAccess,
+    enterpriseManaged,
+    mutateProfiles,
+    renderCard,
+  ])
 
   // 新增：保存设置时用requestIdleCallback/setTimeout
   const handleSaveSettings = (newCards: HomeCardsSettings) => {
@@ -327,8 +338,12 @@ const HomePage = () => {
     }
   }
 
-  const nonCriticalCards = useMemo(
-    () => [
+  const nonCriticalCards = useMemo(() => {
+    if (enterpriseManaged && !enterpriseAdvancedAccess) {
+      return []
+    }
+
+    return [
       renderCard(
         'traffic',
         <EnhancedCard
@@ -364,9 +379,8 @@ const HomePage = () => {
           <LazySystemInfoCard />
         </Suspense>,
       ),
-    ],
-    [t, renderCard],
-  )
+    ]
+  }, [enterpriseAdvancedAccess, enterpriseManaged, t, renderCard])
   const dialogKey = useMemo(
     () => `${serializeCardFlags(effectiveHomeCards)}:${settingsOpen ? 1 : 0}`,
     [effectiveHomeCards, settingsOpen],
@@ -376,27 +390,29 @@ const HomePage = () => {
       title={t('home.page.title')}
       contentStyle={{ padding: 2 }}
       header={
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Tooltip title={t('home.page.tooltips.lightweightMode')} arrow>
-            <IconButton
-              onClick={async () => await entry_lightweight_mode()}
-              size="small"
-              color="inherit"
-            >
-              <HistoryEduOutlined />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t('home.page.tooltips.manual')} arrow>
-            <IconButton onClick={toGithubDoc} size="small" color="inherit">
-              <HelpOutlineRounded />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t('home.page.tooltips.settings')} arrow>
-            <IconButton onClick={openSettings} size="small" color="inherit">
-              <SettingsOutlined />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        enterpriseManaged && !enterpriseAdvancedAccess ? null : (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title={t('home.page.tooltips.lightweightMode')} arrow>
+              <IconButton
+                onClick={async () => await entry_lightweight_mode()}
+                size="small"
+                color="inherit"
+              >
+                <HistoryEduOutlined />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('home.page.tooltips.manual')} arrow>
+              <IconButton onClick={toGithubDoc} size="small" color="inherit">
+                <HelpOutlineRounded />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('home.page.tooltips.settings')} arrow>
+              <IconButton onClick={openSettings} size="small" color="inherit">
+                <SettingsOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )
       }
     >
       <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>

@@ -15,6 +15,9 @@ export type EnterpriseConfigPatch = Partial<EnterpriseConfig>
 
 export interface EnterpriseSessionView {
   authenticated: boolean
+  isSuperAdmin?: boolean
+  permissions?: string[]
+  roles?: string[]
   userId?: string
   username?: string
   tenantId?: string
@@ -29,10 +32,16 @@ export interface EnterprisePolicyStatus {
   syncedAt: string
 }
 
+export interface EnterpriseAllowedResource {
+  type: 'domain' | 'domain_suffix' | 'ip_cidr'
+  value: string
+}
+
 export interface EnterpriseStateView {
   config: EnterpriseConfig
   session: EnterpriseSessionView
   policyStatus?: EnterprisePolicyStatus
+  allowedResources?: EnterpriseAllowedResource[]
 }
 
 export interface EnterpriseLoginStart {
