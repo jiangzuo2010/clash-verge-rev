@@ -1,9 +1,9 @@
-import MonacoEditor from '@monaco-editor/react'
 import {
   CloseFullscreenRounded,
   ContentPasteRounded,
   FormatPaintRounded,
   OpenInFullRounded,
+  RestartAltRounded,
 } from '@mui/icons-material'
 import {
   Button,
@@ -16,20 +16,19 @@ import {
 } from '@mui/material'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useLockFn } from 'ahooks'
-import type { editor } from 'monaco-editor'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseLoadingOverlay } from '@/components/base'
-import { beforeEditorMount } from '@/services/monaco'
+import { BaseLoadingOverlay, MonacoEditor } from '@/components/base'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
+import type { MonacoEditorInstance, MonacoMarker } from '@/types/monaco'
 import debounce from '@/utils/debounce'
 import getSystem from '@/utils/get-system'
 
 const appWindow = getCurrentWebviewWindow()
 
-export type EditorLanguage = 'yaml' | 'javascript' | 'css'
+type EditorLanguage = 'yaml' | 'javascript' | 'css'
 
 export interface EditorViewerProps {
   open: boolean
@@ -43,8 +42,9 @@ export interface EditorViewerProps {
   saveDisabled?: boolean
   onChange?: (value: string) => void
   onSave?: () => void | Promise<void>
+  onResetToDefault?: () => void
   onClose: () => void
-  onValidate?: (markers: editor.IMarker[]) => void
+  onValidate?: (markers: MonacoMarker[]) => void
 }
 
 export const EditorViewer = ({
@@ -59,13 +59,14 @@ export const EditorViewer = ({
   saveDisabled = false,
   onChange,
   onSave,
+  onResetToDefault,
   onClose,
   onValidate,
 }: EditorViewerProps) => {
   const { t } = useTranslation()
   const themeMode = useThemeMode()
   const [isMaximized, setIsMaximized] = useState(false)
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<MonacoEditorInstance | null>(null)
 
   const resolvedTitle = title ?? t('profiles.components.menu.editFile')
   const disableSave = loading || saveDisabled || dirty === false
@@ -218,7 +219,6 @@ export const EditorViewer = ({
               loading={null}
               saveViewState
               keepCurrentModel={false}
-              beforeMount={beforeEditorMount}
               onMount={(editorInstance) => {
                 editorRef.current = editorInstance
                 syncEditorValue()
@@ -301,6 +301,17 @@ export const EditorViewer = ({
       </DialogContent>
 
       <DialogActions>
+        {!readOnly && onResetToDefault && (
+          <Button
+            onClick={onResetToDefault}
+            variant="outlined"
+            color="warning"
+            startIcon={<RestartAltRounded />}
+            disabled={loading}
+          >
+            {t('shared.actions.resetToDefault')}
+          </Button>
+        )}
         <Button onClick={handleClose} variant="outlined">
           {t(readOnly ? 'shared.actions.close' : 'shared.actions.cancel')}
         </Button>

@@ -149,9 +149,8 @@ fn decrypt_policy_envelope(envelope: &EnterpriseEncryptedPolicyEnvelope) -> Resu
     let nonce_bytes = general_purpose::STANDARD
         .decode(&envelope.nonce)
         .context("invalid enterprise policy nonce")?;
-    if nonce_bytes.len() != 12 {
-        bail!("invalid enterprise policy nonce length");
-    }
+    let nonce =
+        Nonce::try_from(nonce_bytes.as_slice()).map_err(|_| anyhow!("invalid enterprise policy nonce length"))?;
     let ciphertext = general_purpose::STANDARD
         .decode(&envelope.ciphertext)
         .context("invalid enterprise policy ciphertext")?;
@@ -161,7 +160,7 @@ fn decrypt_policy_envelope(envelope: &EnterpriseEncryptedPolicyEnvelope) -> Resu
     let aad = policy_aad(&envelope.key_id, &envelope.issued_at, &envelope.nonce);
     cipher
         .decrypt(
-            Nonce::from_slice(&nonce_bytes),
+            &nonce,
             Payload {
                 msg: &ciphertext,
                 aad: aad.as_bytes(),

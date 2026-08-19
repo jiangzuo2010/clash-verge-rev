@@ -16,6 +16,8 @@ scripts/_env.sh
 target
 CLAUDE.md
 .vfox.toml
-.vfox/
+.vfox
 .claude
 .omx/
+AGENTS.md
+.zed

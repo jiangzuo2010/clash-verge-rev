@@ -1,4 +1,3 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
 import {
@@ -11,12 +10,11 @@ import {
   type EnterpriseConfigPatch,
   type EnterpriseStateView,
 } from '@/services/enterprise'
+import { revalidateQuery, setCacheData, useQuery } from '@/services/query-client'
 
 const ENTERPRISE_STATE_QUERY_KEY = ['getEnterpriseState'] as const
 
 export const useEnterprise = () => {
-  const qc = useQueryClient()
-
   const { data: enterprise, refetch } = useQuery({
     queryKey: ENTERPRISE_STATE_QUERY_KEY,
     queryFn: getEnterpriseState,
@@ -32,36 +30,32 @@ export const useEnterprise = () => {
           ) => EnterpriseStateView | undefined),
     ) => {
       if (updaterOrData === undefined) {
-        void refetch()
+        void revalidateQuery(ENTERPRISE_STATE_QUERY_KEY)
         return
       }
 
-      if (typeof updaterOrData === 'function') {
-        const prev = qc.getQueryData<EnterpriseStateView>(
-          ENTERPRISE_STATE_QUERY_KEY,
-        )
-        qc.setQueryData(ENTERPRISE_STATE_QUERY_KEY, updaterOrData(prev))
-      } else {
-        qc.setQueryData(ENTERPRISE_STATE_QUERY_KEY, updaterOrData)
-      }
+      setCacheData<EnterpriseStateView>(
+        ENTERPRISE_STATE_QUERY_KEY,
+        updaterOrData,
+      )
     },
-    [qc, refetch],
+    [],
   )
 
   const patchEnterprise = useCallback(
     async (patch: EnterpriseConfigPatch) => {
       const state = await patchEnterpriseConfig(patch)
-      qc.setQueryData(ENTERPRISE_STATE_QUERY_KEY, state)
+      setCacheData(ENTERPRISE_STATE_QUERY_KEY, state)
       return state
     },
-    [qc],
+    [],
   )
 
   const clearSession = useCallback(async () => {
     const state = await clearEnterpriseSession()
-    qc.setQueryData(ENTERPRISE_STATE_QUERY_KEY, state)
+    setCacheData(ENTERPRISE_STATE_QUERY_KEY, state)
     return state
-  }, [qc])
+  }, [])
 
   const startLogin = useCallback((openBrowser = true) => {
     return startEnterpriseLogin(openBrowser)
@@ -70,10 +64,10 @@ export const useEnterprise = () => {
   const completeLogin = useCallback(
     async (request: EnterpriseAuthCodeRequest) => {
       const state = await completeEnterpriseLogin(request)
-      qc.setQueryData(ENTERPRISE_STATE_QUERY_KEY, state)
+      setCacheData(ENTERPRISE_STATE_QUERY_KEY, state)
       return state
     },
-    [qc],
+    [],
   )
 
   return {

@@ -7,8 +7,11 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import MonacoEditor from '@monaco-editor/react'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
 import {
   VerticalAlignBottomRounded,
   VerticalAlignTopRounded,
@@ -26,8 +29,7 @@ import {
   styled,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import yaml from 'js-yaml'
-import type { editor } from 'monaco-editor'
+import * as yaml from 'js-yaml'
 import {
   startTransition,
   useCallback,
@@ -38,13 +40,15 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, VirtualList } from '@/components/base'
+import { BaseSearchBox, MonacoEditor, VirtualList } from '@/components/base'
 import { ProxyItem } from '@/components/profile/proxy-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
+import type { MonacoEditorInstance } from '@/types/monaco'
 import getSystem from '@/utils/get-system'
 import parseUri from '@/utils/uri-parser'
+import { parseYamlSafe } from '@/utils/yaml'
 
 interface Props {
   profileUid: string
@@ -58,7 +62,7 @@ export const ProxiesEditorViewer = (props: Props) => {
   const { profileUid, property, open, onClose, onSave } = props
   const { t } = useTranslation()
   const themeMode = useThemeMode()
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const editorRef = useRef<MonacoEditorInstance | null>(null)
   const [prevData, setPrevData] = useState('')
   const [currData, setCurrData] = useState('')
   const [visualization, setVisualization] = useState(true)
@@ -69,17 +73,27 @@ export const ProxiesEditorViewer = (props: Props) => {
   const [prependSeq, setPrependSeq] = useState<IProxyConfig[]>([])
   const [appendSeq, setAppendSeq] = useState<IProxyConfig[]>([])
   const [deleteSeq, setDeleteSeq] = useState<string[]>([])
+  const hasLoadedSeqConfigRef = useRef(false)
 
+  // 节点的 name 会被用作 SortableContext 的 item id、React key 以及拖拽排序的
+  // 依据。当 name 为空/null（例如高级模式下粘贴了缺少 name 的节点）时，
+  // @dnd-kit 的 SortableContext 会对 null 执行 `'id' in item` 从而崩溃
+  // （Cannot use 'in' operator to search for 'id' in null）。
+  // 这里统一过滤掉没有有效 name 的节点，避免可视化编辑页崩溃；原始 YAML
+  // 数据仍然保留，用户可在高级(文本)模式中查看并修正这些节点。
+  const hasValidName = (proxy: IProxyConfig) =>
+    typeof proxy?.name === 'string' && proxy.name.length > 0
   const filteredPrependSeq = useMemo(
-    () => prependSeq.filter((proxy) => match(proxy.name)),
+    () =>
+      prependSeq.filter((proxy) => hasValidName(proxy) && match(proxy.name)),
     [prependSeq, match],
   )
   const filteredProxyList = useMemo(
-    () => proxyList.filter((proxy) => match(proxy.name)),
+    () => proxyList.filter((proxy) => hasValidName(proxy) && match(proxy.name)),
     [proxyList, match],
   )
   const filteredAppendSeq = useMemo(
-    () => appendSeq.filter((proxy) => match(proxy.name)),
+    () => appendSeq.filter((proxy) => hasValidName(proxy) && match(proxy.name)),
     [appendSeq, match],
   )
 
@@ -177,16 +191,6 @@ export const ProxiesEditorViewer = (props: Props) => {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   )
-  const reorder = (
-    list: IProxyConfig[],
-    startIndex: number,
-    endIndex: number,
-  ) => {
-    const result = Array.from(list)
-    const [removed] = result.splice(startIndex, 1)
-    result.splice(endIndex, 0, removed)
-    return result
-  }
   const onPrependDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (over) {
@@ -202,7 +206,7 @@ export const ProxiesEditorViewer = (props: Props) => {
           }
         })
 
-        setPrependSeq(reorder(prependSeq, activeIndex, overIndex))
+        setPrependSeq(arrayMove(prependSeq, activeIndex, overIndex))
       }
     }
   }
@@ -220,7 +224,7 @@ export const ProxiesEditorViewer = (props: Props) => {
             overIndex = index
           }
         })
-        setAppendSeq(reorder(appendSeq, activeIndex, overIndex))
+        setAppendSeq(arrayMove(appendSeq, activeIndex, overIndex))
       }
     }
   }
@@ -273,7 +277,7 @@ export const ProxiesEditorViewer = (props: Props) => {
   const fetchProfile = useCallback(async () => {
     const data = await readProfileFile(profileUid)
 
-    const originProxiesObj = yaml.load(data) as {
+    const originProxiesObj = parseYamlSafe(data) as {
       proxies: IProxyConfig[]
     } | null
 
@@ -281,36 +285,58 @@ export const ProxiesEditorViewer = (props: Props) => {
   }, [profileUid])
 
   const fetchContent = useCallback(async () => {
+    hasLoadedSeqConfigRef.current = false
     const data = await readProfileFile(property)
-    const obj = yaml.load(data) as ISeqProfileConfig | null
+    const obj = parseYamlSafe(data) as ISeqProfileConfig | null | undefined
+
+    setPrevData(data)
+    setCurrData(data)
+
+    if (obj === undefined) {
+      setVisualization(false)
+      return
+    }
 
     setPrependSeq(obj?.prepend || [])
     setAppendSeq(obj?.append || [])
     setDeleteSeq(obj?.delete || [])
-
-    setPrevData(data)
-    setCurrData(data)
+    hasLoadedSeqConfigRef.current = true
   }, [property])
 
-  useEffect(() => {
-    if (currData === '' || visualization !== true) {
+  const handleVisualizationToggle = () => {
+    if (visualization) {
+      setVisualization(false)
       return
     }
 
-    const obj = yaml.load(currData) as ISeqProfileConfig | null
+    const obj = parseYamlSafe(currData) as ISeqProfileConfig | null | undefined
+    if (obj === undefined) {
+      hasLoadedSeqConfigRef.current = false
+      return
+    }
+
+    hasLoadedSeqConfigRef.current = true
     startTransition(() => {
       setPrependSeq(obj?.prepend ?? [])
       setAppendSeq(obj?.append ?? [])
       setDeleteSeq(obj?.delete ?? [])
     })
-  }, [currData, visualization])
+    setVisualization(true)
+  }
 
   useEffect(() => {
-    if (!(prependSeq && appendSeq && deleteSeq)) {
+    if (
+      !hasLoadedSeqConfigRef.current ||
+      !(prependSeq && appendSeq && deleteSeq)
+    ) {
       return
     }
 
     const serialize = () => {
+      if (!hasLoadedSeqConfigRef.current) {
+        return
+      }
+
       try {
         setCurrData(
           yaml.dump(
@@ -384,9 +410,7 @@ export const ProxiesEditorViewer = (props: Props) => {
               <Button
                 variant="contained"
                 size="small"
-                onClick={() => {
-                  setVisualization((prev) => !prev)
-                }}
+                onClick={handleVisualizationToggle}
               >
                 {visualization
                   ? t('shared.editorModes.advanced')

@@ -1,5 +1,5 @@
 use super::EnterpriseState;
-use crate::core::{CoreManager, handle, sysopt};
+use crate::core::{CoreManager, handle, proxy_control};
 use anyhow::Result;
 use clash_verge_logging::{Type, logging};
 
@@ -47,13 +47,13 @@ pub async fn ensure_enterprise_runtime_ready_for_core_start() -> Result<()> {
 }
 
 async fn apply_system_proxy_state() -> Result<()> {
-    sysopt::Sysopt::global().update_sysproxy().await?;
-    sysopt::Sysopt::global().refresh_guard().await;
+    proxy_control::apply().await?;
+    proxy_control::refresh_guard().await?;
     Ok(())
 }
 
 async fn fail_closed() {
-    if let Err(err) = sysopt::Sysopt::global().reset_sysproxy().await {
+    if let Err(err) = proxy_control::clear().await {
         logging!(warn, Type::Core, "重置企业代理系统代理失败: {}", err);
     }
     if let Err(err) = CoreManager::global().stop_core().await {

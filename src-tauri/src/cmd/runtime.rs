@@ -1,18 +1,18 @@
 use super::CmdResult;
-use crate::{cmd::StringifyErr as _, config::Config, core::CoreManager, enterprise::ensure_personal_mode};
+use crate::{
+    cmd::StringifyErr as _, config::Config, core::CoreManager, enterprise::ensure_personal_mode, utils::yaml_emitter,
+};
 use anyhow::{Context as _, anyhow};
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
 use std::collections::{HashMap, HashSet};
 
-/// 获取运行时配置
 #[tauri::command]
 pub async fn get_runtime_config() -> CmdResult<Option<Mapping>> {
     Ok(Config::runtime().await.latest_arc().config.clone())
 }
 
-/// 获取运行时YAML配置
 #[tauri::command]
 pub async fn get_runtime_yaml() -> CmdResult<String> {
     let runtime = Config::runtime().await;
@@ -22,20 +22,18 @@ pub async fn get_runtime_yaml() -> CmdResult<String> {
     config
         .ok_or_else(|| anyhow!("failed to parse config to yaml file"))
         .and_then(|config| {
-            serde_yaml_ng::to_string(config)
+            yaml_emitter::to_mihomo_config_string(config)
                 .context("failed to convert config to yaml")
                 .map(|s| s.into())
         })
         .stringify_err()
 }
 
-/// 获取运行时存在的键
 #[tauri::command]
 pub async fn get_runtime_exists() -> CmdResult<HashSet<String>> {
     Ok(Config::runtime().await.latest_arc().exists_keys.clone())
 }
 
-/// 获取运行时日志
 #[tauri::command]
 pub async fn get_runtime_logs() -> CmdResult<HashMap<String, Vec<(String, String)>>> {
     Ok(Config::runtime().await.latest_arc().chain_logs.clone())
@@ -72,7 +70,6 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
             .find(|proxy| proxy.get("name").map(|x| x.as_str()) == proxy_name)
             && !proxies_chain.is_empty()
         {
-            // 添加第一个节点
             proxies_chain.push(entry_proxy.to_owned());
         }
 
@@ -82,7 +79,7 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
 
         config.insert("proxies".into(), proxies_chain);
 
-        serde_yaml_ng::to_string(&config)
+        yaml_emitter::to_mihomo_config_string(&config)
             .context("YAML generation failed")
             .map(|s| s.into())
             .stringify_err()
@@ -91,18 +88,16 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
     }
 }
 
-/// 更新运行时链式代理配置
 #[tauri::command]
 pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<serde_yaml_ng::Value>) -> CmdResult<()> {
     ensure_personal_mode("update runtime proxy chain")
         .await
         .stringify_err()?;
+
+    match CoreManager::global()
+        .update_runtime_config(|d| d.update_proxy_chain_config(proxy_chain_config))
+        .await
     {
-        let runtime = Config::runtime().await;
-        runtime.edit_draft(|d| d.update_proxy_chain_config(proxy_chain_config));
-        // 我们需要在 CoreManager 中验证并应用配置，这里不应该直接调用 runtime.apply()
-    }
-    match CoreManager::global().apply_generate_config().await {
         Ok(outcome) if outcome.is_valid() => {}
         Ok(outcome) => logging!(
             warn,
