@@ -235,7 +235,7 @@ async fn current_os_proxy_state(sys: Sysproxy, auto: Autoproxy) -> OsProxyState 
 }
 
 /// Enterprise-managed proxy overrides the user's own system proxy settings.
-fn effective_proxy_settings<'a>(verge: &'a IVerge, enterprise_proxy_enabled: Option<bool>) -> (bool, bool, &'a str) {
+fn effective_proxy_settings(verge: &IVerge, enterprise_proxy_enabled: Option<bool>) -> (bool, bool, &str) {
     match enterprise_proxy_enabled {
         Some(proxy_enabled) => (proxy_enabled, false, "127.0.0.1"),
         None => (
@@ -1088,10 +1088,7 @@ mod tests {
             ..IVerge::default()
         };
 
-        assert_eq!(
-            effective_proxy_settings(&verge, Some(true)),
-            (true, false, "127.0.0.1")
-        );
+        assert_eq!(effective_proxy_settings(&verge, Some(true)), (true, false, "127.0.0.1"));
     }
 
     #[test]
@@ -1118,9 +1115,6 @@ mod tests {
             ..IVerge::default()
         };
 
-        assert_eq!(
-            effective_proxy_settings(&verge, None),
-            (true, true, "0.0.0.0")
-        );
+        assert_eq!(effective_proxy_settings(&verge, None), (true, true, "0.0.0.0"));
     }
 }
