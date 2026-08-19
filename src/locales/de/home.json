@@ -26,6 +26,53 @@
     },
     "title": "Startseite"
   },
+  "enterprise": {
+    "login": {
+      "headline": "ChinEuro Secure Access",
+      "description": "Securely connect to the business resources your company allows. After sign-in, the app syncs access policies and keeps local connection settings up to date.",
+      "cardTitle": "ChinEuro Secure Access",
+      "title": "Enterprise sign-in",
+      "subtitle": "Continue with your company account.",
+      "action": "Sign in",
+      "loggingIn": "Waiting for sign-in",
+      "securityHint": "Sign-in opens in your browser. The app never stores your company password."
+    },
+    "access": {
+      "title": "Enterprise access",
+      "sync": "Sync",
+      "syncConfig": "Sync config",
+      "signOut": "Sign out",
+      "account": "Enterprise account",
+      "signedIn": "Signed in",
+      "notSignedIn": "Not signed in",
+      "policy": "Connection config",
+      "pendingSync": "Pending sync",
+      "syncedAt": "Synced {{time}}",
+      "tenant": "Tenant",
+      "version": "Config version",
+      "expiresAt": "Config expires"
+    },
+    "resources": {
+      "title": "Allowed URLs",
+      "empty": "No allowed URLs",
+      "emptyAfterSync": "No allowed URLs yet. Company-approved resources will appear after syncing.",
+      "types": {
+        "domain": "Domain",
+        "domainSuffix": "Suffix",
+        "ipCidr": "CIDR",
+        "rule": "Rule"
+      }
+    },
+    "notices": {
+      "connected": "Connected to the enterprise network",
+      "completeInBrowser": "Complete enterprise sign-in in your browser",
+      "loginFailed": "Sign-in failed. Try again or contact your administrator.",
+      "synced": "Connection config synced",
+      "syncFailed": "Sync failed. Try again later or contact your administrator.",
+      "signedOut": "Signed out",
+      "signOutFailed": "Sign-out failed. Try again later."
+    }
+  },
   "components": {
     "proxyTun": {
       "status": {

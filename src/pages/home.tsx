@@ -30,6 +30,7 @@ import { ClashModeCard } from '@/components/home/clash-mode-card'
 import { CurrentProxyCard } from '@/components/home/current-proxy-card'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
+import { EnterpriseAccessHome } from '@/components/home/enterprise-access-home'
 import { EnterpriseStatusCard } from '@/components/home/enterprise-status-card'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
@@ -217,6 +218,7 @@ const HomePage = () => {
   const { enterprise } = useEnterprise()
   const { current, mutateProfiles } = useProfiles()
   const enterpriseManaged = enterprise?.config.enabled ?? false
+  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
   const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
 
   // 设置弹窗的状态
@@ -291,8 +293,16 @@ const HomePage = () => {
   )
 
   const criticalCards = useMemo(() => {
+    if (enterpriseManaged && !enterpriseAuthenticated) {
+      return [
+        <Grid size={12} key="enterprise-login">
+          <EnterpriseAccessHome fullscreen />
+        </Grid>,
+      ]
+    }
+
     if (enterpriseManaged && !enterpriseAdvancedAccess) {
-      return [renderCard('profile', <EnterpriseStatusCard />, 12)]
+      return [renderCard('profile', <EnterpriseAccessHome />, 12)]
     }
 
     return [
@@ -312,6 +322,7 @@ const HomePage = () => {
   }, [
     current,
     enterpriseAdvancedAccess,
+    enterpriseAuthenticated,
     enterpriseManaged,
     mutateProfiles,
     renderCard,
@@ -385,6 +396,11 @@ const HomePage = () => {
     () => `${serializeCardFlags(effectiveHomeCards)}:${settingsOpen ? 1 : 0}`,
     [effectiveHomeCards, settingsOpen],
   )
+
+  if (enterpriseManaged && !enterpriseAuthenticated) {
+    return <EnterpriseAccessHome fullscreen />
+  }
+
   return (
     <BasePage
       title={t('home.page.title')}

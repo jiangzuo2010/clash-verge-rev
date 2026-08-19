@@ -26,6 +26,34 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 4000,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules[\\/](react|react-dom|react-router|scheduler|foxact)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'mui-vendor',
+              test: /node_modules[\\/](@mui|@emotion)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'tauri-vendor',
+              test: /node_modules[\\/](@tauri-apps|tauri-plugin-mihomo-api)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'utility-vendor',
+              test: /node_modules[\\/](ahooks|axios|dayjs|i18next|react-i18next|@tanstack|js-yaml|lodash-es|validator)[\\/]/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

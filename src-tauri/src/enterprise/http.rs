@@ -71,7 +71,10 @@ mod tests {
 
     #[test]
     fn enterprise_url_detects_loopback() {
-        assert!(is_loopback_enterprise_url("http://127.0.0.1:18080").unwrap());
-        assert!(!is_loopback_enterprise_url("https://api-t.taxspace.cn/gateway/api").unwrap());
+        assert!(matches!(is_loopback_enterprise_url("http://127.0.0.1:18080"), Ok(true)));
+        assert!(matches!(
+            is_loopback_enterprise_url("https://api-t.taxspace.cn/gateway/api"),
+            Ok(false)
+        ));
     }
 }

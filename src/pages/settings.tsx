@@ -51,22 +51,7 @@ const SettingPage = () => {
   }
 
   if (enterpriseManaged && !enterpriseAuthenticated) {
-    return (
-      <BasePage title="ChinEuro Secure Access">
-        <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>
-          <Grid size={{ xs: 6, md: 8 }} offset={{ md: 2 }}>
-            <Box
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isDark ? '#282a36' : '#ffffff',
-              }}
-            >
-              <SettingEnterprise onError={onError} />
-            </Box>
-          </Grid>
-        </Grid>
-      </BasePage>
-    )
+    return <Navigate to="/" replace />
   }
 
   return (

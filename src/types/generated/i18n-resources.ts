@@ -144,6 +144,53 @@ export interface TranslationResources {
           }
         }
       }
+      enterprise: {
+        access: {
+          account: string
+          expiresAt: string
+          notSignedIn: string
+          pendingSync: string
+          policy: string
+          signedIn: string
+          signOut: string
+          sync: string
+          syncConfig: string
+          syncedAt: string
+          tenant: string
+          title: string
+          version: string
+        }
+        login: {
+          action: string
+          cardTitle: string
+          description: string
+          headline: string
+          loggingIn: string
+          securityHint: string
+          subtitle: string
+          title: string
+        }
+        notices: {
+          completeInBrowser: string
+          connected: string
+          loginFailed: string
+          signedOut: string
+          signOutFailed: string
+          synced: string
+          syncFailed: string
+        }
+        resources: {
+          empty: string
+          emptyAfterSync: string
+          title: string
+          types: {
+            domain: string
+            domainSuffix: string
+            ipCidr: string
+            rule: string
+          }
+        }
+      }
       page: {
         cards: {
           networkSettings: string

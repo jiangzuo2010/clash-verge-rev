@@ -254,12 +254,15 @@ async fn handle_callback_request(
     match result {
         Ok(()) => Ok(callback_response(
             warp::http::StatusCode::OK,
-            "Enterprise login completed. You can close this window.",
+            "企业登录已完成，可以关闭此窗口。",
         )),
-        Err(err) => Ok(callback_response(
-            warp::http::StatusCode::BAD_REQUEST,
-            &format!("Enterprise login failed: {err}"),
-        )),
+        Err(err) => {
+            log::warn!("enterprise login callback failed: {err}");
+            Ok(callback_response(
+                warp::http::StatusCode::BAD_REQUEST,
+                "企业登录失败，请重试或联系管理员。",
+            ))
+        }
     }
 }
 

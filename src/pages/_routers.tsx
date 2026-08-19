@@ -6,7 +6,8 @@ import LockOpenRoundedIcon from '@mui/icons-material/LockOpenRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import SubjectRoundedIcon from '@mui/icons-material/SubjectRounded'
 import WifiRoundedIcon from '@mui/icons-material/WifiRounded'
-import { createBrowserRouter, RouteObject } from 'react-router'
+import type { ComponentType } from 'react'
+import { createBrowserRouter, type RouteObject } from 'react-router'
 
 import ConnectionsSvg from '@/assets/image/itemicon/connections.svg?react'
 import HomeSvg from '@/assets/image/itemicon/home.svg?react'
@@ -18,13 +19,13 @@ import SettingsSvg from '@/assets/image/itemicon/settings.svg?react'
 import UnlockSvg from '@/assets/image/itemicon/unlock.svg?react'
 
 import Layout from './_layout'
-import ConnectionsPage from './connections'
 import HomePage from './home'
-import ProfilesPage from './profiles'
-import ProxiesPage from './proxies'
-import RulesPage from './rules'
-import SettingsPage from './settings'
-import UnlockPage from './unlock'
+
+const lazyRoute =
+  (loader: () => Promise<{ default: ComponentType }>) => async () => {
+    const module = await loader()
+    return { Component: module.default }
+  }
 
 export const navItems = [
   {
@@ -37,25 +38,25 @@ export const navItems = [
     label: 'layout.components.navigation.tabs.proxies',
     path: '/proxies',
     icon: [<WifiRoundedIcon key="mui" />, <ProxiesSvg key="svg" />],
-    Component: ProxiesPage,
+    lazy: lazyRoute(() => import('./proxies')),
   },
   {
     label: 'layout.components.navigation.tabs.profiles',
     path: '/profile',
     icon: [<DnsRoundedIcon key="mui" />, <ProfilesSvg key="svg" />],
-    Component: ProfilesPage,
+    lazy: lazyRoute(() => import('./profiles')),
   },
   {
     label: 'layout.components.navigation.tabs.connections',
     path: '/connections',
     icon: [<LanguageRoundedIcon key="mui" />, <ConnectionsSvg key="svg" />],
-    Component: ConnectionsPage,
+    lazy: lazyRoute(() => import('./connections')),
   },
   {
     label: 'layout.components.navigation.tabs.rules',
     path: '/rules',
     icon: [<ForkRightRoundedIcon key="mui" />, <RulesSvg key="svg" />],
-    Component: RulesPage,
+    lazy: lazyRoute(() => import('./rules')),
   },
   {
     label: 'layout.components.navigation.tabs.logs',
@@ -67,13 +68,13 @@ export const navItems = [
     label: 'layout.components.navigation.tabs.unlock',
     path: '/unlock',
     icon: [<LockOpenRoundedIcon key="mui" />, <UnlockSvg key="svg" />],
-    Component: UnlockPage,
+    lazy: lazyRoute(() => import('./unlock')),
   },
   {
     label: 'layout.components.navigation.tabs.settings',
     path: '/settings',
     icon: [<SettingsRoundedIcon key="mui" />, <SettingsSvg key="svg" />],
-    Component: SettingsPage,
+    lazy: lazyRoute(() => import('./settings')),
   },
 ]
 
@@ -81,12 +82,15 @@ export const router = createBrowserRouter([
   {
     path: '/',
     Component: Layout,
-    children: navItems.map(
-      (item) =>
-        ({
-          path: item.path,
-          Component: item.Component,
-        }) as RouteObject,
-    ),
+    children: navItems.map((item) => {
+      const route: RouteObject = { path: item.path }
+      if ('Component' in item) {
+        route.Component = item.Component
+      }
+      if ('lazy' in item) {
+        route.lazy = item.lazy
+      }
+      return route
+    }),
   },
 ])

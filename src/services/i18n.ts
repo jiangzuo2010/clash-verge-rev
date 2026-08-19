@@ -5,6 +5,7 @@ export const supportedLanguages = [
   'en',
   'ru',
   'zh',
+  'pl',
   'fa',
   'tt',
   'id',

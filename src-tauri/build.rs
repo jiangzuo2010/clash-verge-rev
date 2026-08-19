@@ -13,11 +13,11 @@ fn main() {
 fn configure_enterprise_policy_secret() {
     const KEY: &str = "ENTERPRISE_POLICY_CRYPTO_SECRET";
 
-    if let Ok(value) = std::env::var(KEY) {
-        if !value.trim().is_empty() {
-            println!("cargo:rustc-env={KEY}={value}");
-            return;
-        }
+    if let Ok(value) = std::env::var(KEY)
+        && !value.trim().is_empty()
+    {
+        println!("cargo:rustc-env={KEY}={value}");
+        return;
     }
 
     let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default());

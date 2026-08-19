@@ -34,6 +34,7 @@ const languageOptions = supportedLanguages.map((code) => {
     en: 'English',
     ru: 'Русский',
     zh: '中文',
+    pl: 'Polski',
     fa: 'فارسی',
     tt: 'Татар',
     id: 'Bahasa Indonesia',

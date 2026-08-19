@@ -24,53 +24,53 @@
       },
       "title": "Home Settings"
     },
-    "title": "Home"
+    "title": "Strona główna"
   },
   "enterprise": {
     "login": {
       "headline": "ChinEuro Secure Access",
-      "description": "Securely connect to the business resources your company allows. After sign-in, the app syncs access policies and keeps local connection settings up to date.",
+      "description": "Bezpiecznie łącz się z zasobami firmowymi, do których masz dostęp. Po zalogowaniu aplikacja automatycznie synchronizuje zasady dostępu i lokalną konfigurację połączenia.",
       "cardTitle": "ChinEuro Secure Access",
-      "title": "Enterprise sign-in",
-      "subtitle": "Continue with your company account.",
-      "action": "Sign in",
-      "loggingIn": "Waiting for sign-in",
-      "securityHint": "Sign-in opens in your browser. The app never stores your company password."
+      "title": "Logowanie firmowe",
+      "subtitle": "Kontynuuj przy użyciu konta firmowego.",
+      "action": "Zaloguj się",
+      "loggingIn": "Oczekiwanie na logowanie",
+      "securityHint": "Logowanie odbywa się w przeglądarce. Aplikacja nigdy nie zapisuje hasła firmowego."
     },
     "access": {
-      "title": "Enterprise access",
-      "sync": "Sync",
-      "syncConfig": "Sync config",
-      "signOut": "Sign out",
-      "account": "Enterprise account",
-      "signedIn": "Signed in",
-      "notSignedIn": "Not signed in",
-      "policy": "Connection config",
-      "pendingSync": "Pending sync",
-      "syncedAt": "Synced {{time}}",
+      "title": "Dostęp firmowy",
+      "sync": "Synchronizuj",
+      "syncConfig": "Synchronizuj konfigurację",
+      "signOut": "Wyloguj",
+      "account": "Konto firmowe",
+      "signedIn": "Zalogowano",
+      "notSignedIn": "Nie zalogowano",
+      "policy": "Konfiguracja połączenia",
+      "pendingSync": "Oczekuje na synchronizację",
+      "syncedAt": "Zsynchronizowano {{time}}",
       "tenant": "Tenant",
-      "version": "Config version",
-      "expiresAt": "Config expires"
+      "version": "Wersja konfiguracji",
+      "expiresAt": "Ważność konfiguracji"
     },
     "resources": {
-      "title": "Allowed URLs",
-      "empty": "No allowed URLs",
-      "emptyAfterSync": "No allowed URLs yet. Company-approved resources will appear after syncing.",
+      "title": "Dozwolone adresy URL",
+      "empty": "Brak dozwolonych adresów URL",
+      "emptyAfterSync": "Brak dozwolonych adresów URL. Zasoby zatwierdzone przez firmę pojawią się po synchronizacji.",
       "types": {
-        "domain": "Domain",
-        "domainSuffix": "Suffix",
+        "domain": "Domena",
+        "domainSuffix": "Sufiks",
         "ipCidr": "CIDR",
-        "rule": "Rule"
+        "rule": "Reguła"
       }
     },
     "notices": {
-      "connected": "Connected to the enterprise network",
-      "completeInBrowser": "Complete enterprise sign-in in your browser",
-      "loginFailed": "Sign-in failed. Try again or contact your administrator.",
-      "synced": "Connection config synced",
-      "syncFailed": "Sync failed. Try again later or contact your administrator.",
-      "signedOut": "Signed out",
-      "signOutFailed": "Sign-out failed. Try again later."
+      "connected": "Połączono z siecią firmową",
+      "completeInBrowser": "Dokończ logowanie firmowe w przeglądarce",
+      "loginFailed": "Logowanie nie powiodło się. Spróbuj ponownie lub skontaktuj się z administratorem.",
+      "synced": "Konfiguracja połączenia została zsynchronizowana",
+      "syncFailed": "Synchronizacja nie powiodła się. Spróbuj później lub skontaktuj się z administratorem.",
+      "signedOut": "Wylogowano",
+      "signOutFailed": "Wylogowanie nie powiodło się. Spróbuj później."
     }
   },
   "components": {

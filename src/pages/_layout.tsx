@@ -16,7 +16,15 @@ import { Box, List, Menu, MenuItem, Paper, ThemeProvider } from '@mui/material'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import type { CSSProperties } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 
@@ -43,10 +51,11 @@ import {
 } from './_layout/hooks'
 import { handleNoticeMessage } from './_layout/utils'
 import { navItems } from './_routers'
-import LogsPage from './logs'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
+
+const LogsPage = lazy(() => import('./logs'))
 
 export const portableFlag = false
 
@@ -63,7 +72,7 @@ const ENTERPRISE_ADVANCED_PATHS = new Set([
   '/logs',
   '/settings',
 ])
-const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/settings'])
+const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/'])
 
 interface SortableNavMenuItemProps {
   item: NavItem
@@ -128,6 +137,7 @@ const Layout = () => {
   const enterpriseManaged = enterprise?.config.enabled ?? false
   const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
   const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
+  const enterpriseSignedOut = enterpriseManaged && !enterpriseAuthenticated
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
@@ -271,7 +281,7 @@ const Layout = () => {
       !enterpriseAuthenticated &&
       !ENTERPRISE_SIGNED_OUT_PATHS.has(pathname)
     ) {
-      navigate('/settings', { replace: true })
+      navigate('/', { replace: true })
       return
     }
 
@@ -312,6 +322,33 @@ const Layout = () => {
           color: mode === 'light' ? '#333' : '#fff',
         }}
       ></div>
+    )
+  }
+
+  if (enterpriseSignedOut) {
+    return (
+      <ThemeProvider theme={theme}>
+        <NoticeManager position={verge?.notice_position} />
+        <Paper
+          square
+          elevation={0}
+          className={`${OS} layout layout--enterprise-login`}
+          sx={[
+            ({ palette }) => ({
+              bgcolor: palette.background.paper,
+              width: '100vw',
+              height: '100vh',
+              overflow: 'hidden',
+            }),
+            OS === 'linux' ? { borderRadius: '8px' } : {},
+          ]}
+        >
+          {customTitlebar}
+          <BaseErrorBoundary>
+            <Outlet />
+          </BaseErrorBoundary>
+        </Paper>
+      </ThemeProvider>
     )
   }
 
@@ -396,12 +433,14 @@ const Layout = () => {
                     alignSelf: 'center',
                     color: isDark ? 'white' : 'black',
                     fontFamily: "Georgia, 'Times New Roman', serif",
-                    fontSize: 18,
+                    fontSize: 15,
                     fontWeight: 600,
-                    lineHeight: 1,
+                    lineHeight: 1.05,
                   }}
                 >
-                  ChinEuro Secure Access
+                  ChinEuro
+                  <br />
+                  Secure Access
                 </Box>
               </div>
               <UpdateButton className="the-newbtn" />
@@ -536,7 +575,9 @@ const Layout = () => {
                     display: isLogsPage ? undefined : 'none',
                   }}
                 >
-                  <LogsPage />
+                  <Suspense fallback={null}>
+                    <LogsPage />
+                  </Suspense>
                 </div>
               )}
             </div>

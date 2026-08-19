@@ -5,7 +5,7 @@ use super::{
 };
 use aes_gcm::{
     Aes256Gcm, Nonce,
-    aead::{Aead, KeyInit, Payload},
+    aead::{Aead as _, KeyInit as _, Payload},
 };
 use anyhow::{Context as _, Result, anyhow, bail};
 use base64::{Engine as _, engine::general_purpose};
@@ -13,7 +13,7 @@ use chrono::Utc;
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
+use sha2::{Digest as _, Sha256};
 
 const POLICY_PATH: &str = "/enterprise/proxy/policy";
 const POLICY_CRYPTO_DEFAULT_SECRET: &str = "chineuro-enterprise-policy-transport-secret-v1";

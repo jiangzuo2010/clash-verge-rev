@@ -26,6 +26,53 @@
     },
     "title": "首页"
   },
+  "enterprise": {
+    "login": {
+      "headline": "ChinEuro Secure Access",
+      "description": "安全连接公司允许访问的业务资源。登录后，应用会自动同步访问策略并保持本机连接配置最新。",
+      "cardTitle": "ChinEuro Secure Access",
+      "title": "企业登录",
+      "subtitle": "使用公司账号继续访问。",
+      "action": "企业登录",
+      "loggingIn": "等待登录",
+      "securityHint": "登录将在浏览器中完成，应用不会保存您的公司密码。"
+    },
+    "access": {
+      "title": "企业访问",
+      "sync": "同步",
+      "syncConfig": "同步配置",
+      "signOut": "退出",
+      "account": "企业账号",
+      "signedIn": "已登录",
+      "notSignedIn": "未登录",
+      "policy": "连接配置",
+      "pendingSync": "待同步",
+      "syncedAt": "已同步 {{time}}",
+      "tenant": "租户",
+      "version": "配置版本",
+      "expiresAt": "配置有效期"
+    },
+    "resources": {
+      "title": "可访问网址",
+      "empty": "暂无可访问网址",
+      "emptyAfterSync": "暂无可访问网址。同步配置后会显示公司允许访问的资源。",
+      "types": {
+        "domain": "域名",
+        "domainSuffix": "后缀",
+        "ipCidr": "网段",
+        "rule": "规则"
+      }
+    },
+    "notices": {
+      "connected": "已连接到企业网络",
+      "completeInBrowser": "请在浏览器中完成企业登录",
+      "loginFailed": "登录失败，请重试或联系管理员",
+      "synced": "连接配置已同步",
+      "syncFailed": "同步失败，请稍后重试或联系管理员",
+      "signedOut": "已退出企业登录",
+      "signOutFailed": "退出失败，请稍后重试"
+    }
+  },
   "components": {
     "proxyTun": {
       "status": {
