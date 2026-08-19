@@ -1,10 +1,9 @@
 name: Auto Build
 
 on:
+  # 本 fork 关闭定时构建：该流程依赖上游仓库的 reusable workflow 与上游 secrets，
+  # 在 fork 中定时运行只会失败并消耗 Actions 额度。需要时手动触发。
   workflow_dispatch:
-  schedule:
-    # UTC+8 12:00, 18:00 -> UTC 4:00, 10:00
-    - cron: '0 4,10 * * *'
 permissions: write-all
 env:
   TAG_NAME: autobuild

@@ -1,0 +1,206 @@
+name: Build Installers
+
+# 为 ChinEuro Secure Access 构建 macOS / Windows 安装包。
+#   - 手动触发：产物上传到 workflow artifacts，可只构建某一个平台
+#   - 推送 v*.*.* tag：构建全部架构并发布到 GitHub Release（草稿）
+#
+# 可选 secrets：
+#   ENTERPRISE_POLICY_CRYPTO_SECRET  企业策略加密密钥，编译期注入；不配则回落代码内默认值
+#   TAURI_PRIVATE_KEY                应用自更新签名私钥；不配则跳过自更新产物
+#   TAURI_KEY_PASSWORD               上述私钥的密码
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '要构建的平台'
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - macos
+          - windows
+      draft_release:
+        description: '同时创建一个草稿 Release'
+        type: boolean
+        required: false
+        default: false
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  # 跳过 husky 的 prepare 钩子，CI 里不需要 git hooks
+  HUSKY: 0
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  # 按选择的平台裁剪构建矩阵，未选中的架构不会占用 runner
+  setup:
+    name: 准备构建矩阵
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build_matrix.outputs.matrix }}
+    steps:
+      - name: 计算矩阵
+        id: build_matrix
+        shell: bash
+        env:
+          # tag 触发时 inputs 为空，默认构建全部架构
+          SELECTED: ${{ github.event.inputs.platform || 'all' }}
+        run: |
+          set -euo pipefail
+
+          all='[
+            {"os":"macos-latest","target":"aarch64-apple-darwin","label":"macOS Apple Silicon","platform":"macos"},
+            {"os":"macos-latest","target":"x86_64-apple-darwin","label":"macOS Intel","platform":"macos"},
+            {"os":"windows-latest","target":"x86_64-pc-windows-msvc","label":"Windows x64","platform":"windows"},
+            {"os":"windows-latest","target":"aarch64-pc-windows-msvc","label":"Windows ARM64","platform":"windows"}
+          ]'
+
+          if [[ "$SELECTED" == 'all' ]]; then
+            matrix=$(jq -c '.' <<< "$all")
+          else
+            matrix=$(jq -c --arg p "$SELECTED" '[.[] | select(.platform == $p)]' <<< "$all")
+          fi
+
+          echo "本次构建：$(jq -r '[.[].label] | join(", ")' <<< "$matrix")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.label }}
+    needs: [setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.97.1'
+          targets: ${{ matrix.target }}
+
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          workspaces: '. -> target'
+          cache-all-crates: true
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.19.0'
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 准备内核与资源文件
+        run: pnpm run prebuild ${{ matrix.target }}
+
+      - name: 构建安装包
+        shell: bash
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          # 企业策略加密密钥，由 src-tauri/build.rs 编译期注入；
+          # 未配置时回落到 sync.rs 中的默认值（仅适合测试包）
+          ENTERPRISE_POLICY_CRYPTO_SECRET: ${{ secrets.ENTERPRISE_POLICY_CRYPTO_SECRET }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          # secrets 不能直接用在 if 表达式里，先落到 env 再判断
+          HAS_SIGNING_KEY: ${{ secrets.TAURI_PRIVATE_KEY != '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$HAS_SIGNING_KEY" == 'true' ]]; then
+            echo '✅ 检测到 updater 签名密钥，将一并生成自更新产物'
+            pnpm tauri build --target '${{ matrix.target }}'
+          else
+            # tauri.conf.json 里 createUpdaterArtifacts 为 true，缺私钥会直接构建失败，
+            # 这里临时关掉它，让没配密钥时也能出安装包（但装出来的应用不支持自更新）
+            echo '⚠️ 未配置 TAURI_PRIVATE_KEY，本次跳过自更新产物'
+            pnpm tauri build --target '${{ matrix.target }}' \
+              --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+
+      - name: 收集产物
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='artifacts'
+          mkdir -p "$out"
+          bundle="target/${{ matrix.target }}/release/bundle"
+
+          if [[ '${{ matrix.platform }}' == 'macos' ]]; then
+            find "$bundle/dmg" -name '*.dmg' -exec cp {} "$out/" \;
+            # 自更新产物只在配了签名密钥时才有
+            find "$bundle/macos" \( -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) \
+              -exec cp {} "$out/" \; 2>/dev/null || true
+          else
+            find "$bundle/nsis" \( -name '*.exe' -o -name '*.sig' \) -exec cp {} "$out/" \;
+          fi
+
+          echo '本次产物：'
+          ls -lh "$out"
+
+          if [[ -z "$(ls -A "$out")" ]]; then
+            echo '::error::构建结束但没有找到任何安装包产物'
+            exit 1
+          fi
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: ChinEuro-Secure-Access-${{ matrix.target }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: 发布 Release
+    needs: [build]
+    # tag 推送时自动发布；手动触发时按勾选决定
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.draft_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 列出待发布文件
+        run: ls -lh artifacts
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+          name: >-
+            ChinEuro Secure Access
+            ${{ github.ref_type == 'tag' && github.ref_name || format('构建 #{0}', github.run_number) }}
+          files: artifacts/*
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          generate_release_notes: ${{ github.ref_type == 'tag' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
