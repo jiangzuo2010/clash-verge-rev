@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 
-export interface EnterpriseConfig {
+interface EnterpriseConfig {
   enabled: boolean
   iamBaseUrl: string
   policyBaseUrl: string
@@ -13,7 +13,7 @@ export interface EnterpriseConfig {
 
 export type EnterpriseConfigPatch = Partial<EnterpriseConfig>
 
-export interface EnterpriseSessionView {
+interface EnterpriseSessionView {
   authenticated: boolean
   isSuperAdmin?: boolean
   permissions?: string[]
@@ -25,14 +25,14 @@ export interface EnterpriseSessionView {
   accessTokenExpiresAt?: string
 }
 
-export interface EnterprisePolicyStatus {
+interface EnterprisePolicyStatus {
   version: string
   mode: string
   expiresAt: string
   syncedAt: string
 }
 
-export interface EnterpriseAllowedResource {
+interface EnterpriseAllowedResource {
   type: 'domain' | 'domain_suffix' | 'ip_cidr'
   value: string
 }
