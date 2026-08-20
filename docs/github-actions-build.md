@@ -30,34 +30,62 @@ git push origin v2.5.3
 
 ## 需要配置的 Secrets
 
-在 `Settings → Secrets and variables → Actions` 添加。三个都是可选的，但**强烈建议至少配置前两个**。
+类型选 **Repository secret**（`Settings → Secrets and variables → Actions → New repository secret`）。不要用 Environment secret——那需要在 workflow 里声明 `environment:` 才能读到，本流程没有声明。
+
+两个值在本机都已经存在，直接复制即可，**不要重新生成**。
 
 ### `ENTERPRISE_POLICY_CRYPTO_SECRET`
 
-企业策略传输加密密钥，由 `src-tauri/build.rs` 在编译期注入二进制。
-
-**不配置的后果**：回落到 `src-tauri/src/enterprise/sync.rs` 中硬编码的默认值 `chineuro-enterprise-policy-transport-secret-v1`。该值在代码库中公开可见，任何人都能解密策略下发内容。**仅可用于测试包，正式分发必须配置。**
-
-值需要与你的策略服务端保持一致。
-
-### `TAURI_PRIVATE_KEY` 与 `TAURI_KEY_PASSWORD`
-
-应用自更新的签名私钥及其密码。`src-tauri/tauri.conf.json` 中已经配置了对应的公钥：
+**这是一个对称共享密钥，客户端和策略服务端必须用同一个值。**它不是随便生成一个新值就行的——`src-tauri/src/enterprise/sync.rs` 用它派生出两把密钥：
 
 ```
-plugins.updater.pubkey = dW50cnVzdGVkIGNvbW1lbnQ6...
-plugins.updater.endpoints = https://updates.chineuro.com/chineuro-proxy/...
+AES-256-GCM 解密密钥 = SHA256("<secret>:aes-256-gcm")
+HMAC-SHA256 校验密钥 = SHA256("<secret>:hmac-sha256")
 ```
 
-私钥应该是你当初生成这对密钥时留下的那一份。**必须与上述 pubkey 配对**，否则装出来的应用在检查更新时会拒绝更新包。
+换了值，客户端就解不开服务端下发的策略包（报 `failed to decrypt enterprise policy`），也过不了签名校验。
+
+**取值位置**：项目根目录的 `.env` 文件里已经有了（该文件在 `.gitignore` 中，不会入库）。
+
+```bash
+# 复制到剪贴板，然后粘进 GitHub Secret
+grep '^ENTERPRISE_POLICY_CRYPTO_SECRET=' .env | sed 's/^[^=]*=//' | tr -d '"'"'"'\r\n' | pbcopy
+```
+
+只有在服务端还没定这个密钥时，才需要新生成一个，并**同步配置到服务端**：
+
+```bash
+openssl rand -base64 48 | tr -d '\n'
+```
+
+格式没有限制（任意字符串都会被 SHA256 摘要），但既然是安全边界，用高熵随机串。
+
+**不配置的后果**：回落到 `sync.rs` 中硬编码的 `chineuro-enterprise-policy-transport-secret-v1`。该值在代码库中公开可见，任何人都能解密策略下发内容。**仅可用于测试包，正式分发必须配置。**
+
+### `TAURI_PRIVATE_KEY`
+
+应用自更新的签名私钥。`src-tauri/tauri.conf.json` 里已经配了对应公钥，指向 `https://updates.chineuro.com/chineuro-proxy/...`。
+
+**取值位置**：`~/.tauri/chineuro-proxy.key`，已验证与配置中的 pubkey 配对。
+
+```bash
+# 整个文件内容都要（含 untrusted comment: 开头那行）
+pbcopy < ~/.tauri/chineuro-proxy.key
+```
+
+这把私钥**丢了就无法补救**：只能重新生成一对并更新 `tauri.conf.json` 的 pubkey，而已经装在用户机器上的旧版本将永远无法再自动更新，必须手动分发一次。建议另外备份到密码管理器。
 
 **不配置的后果**：workflow 会自动关闭 `createUpdaterArtifacts` 继续出包（否则 tauri 会因为「有公钥但没私钥」直接构建失败），但装出来的应用**不支持应用内自动更新**，只能手动下载新版覆盖安装。
 
-如果私钥已丢失，需要重新生成一对并更新 `tauri.conf.json` 里的 pubkey——注意这会导致**已经装在用户机器上的旧版本无法再自动更新**，必须手动分发一次。
+### `TAURI_KEY_PASSWORD`
 
-```bash
-pnpm tauri signer generate -w ~/.tauri/chineuro.key
-```
+**当前这把私钥是空密码的**（已实测：`tauri signer sign -f ~/.tauri/chineuro-proxy.key -p ""` 可正常签名），所以这个 secret **不需要配置**。workflow 在 secret 缺失时会把该环境变量置为空串，正好匹配。
+
+只有将来换成带密码的私钥时才需要添加。
+
+### 备份提醒
+
+这两个值都只存在于你的本机，仓库里没有。换电脑或磁盘故障就会丢失，其中 `TAURI_PRIVATE_KEY` 丢失后果不可逆。建议现在就存进密码管理器。
 
 ## 代码签名现状
 
