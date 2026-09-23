@@ -32,6 +32,7 @@ export const EnterpriseStatusCard = () => {
       await refetchEnterprise()
       showNotice.success(t('home.enterprise.notices.synced'))
     } catch (err) {
+      await refetchEnterprise()
       showNotice.error(err)
     }
   })
