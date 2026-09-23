@@ -10,6 +10,7 @@ use aes_gcm::{
 use anyhow::{Context as _, Result, anyhow, bail};
 use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
+use clash_verge_logging::{Type, logging};
 use hmac::{Hmac, Mac as _};
 use serde::Deserialize;
 use serde_json::Value;
@@ -36,14 +37,24 @@ fn is_policy_rejection(err: &anyhow::Error) -> bool {
     err.downcast_ref::<EnterprisePolicyRejected>().is_some()
 }
 
-fn ensure_policy_status(status: reqwest::StatusCode) -> Result<()> {
+/// A bare 403 (e.g. from a WAF/nginx in front of the service) must not clear every client's
+/// cached policy; only the server's explicit `403001` body counts as a rejection.
+fn policy_status_error(status: reqwest::StatusCode, body: Option<&Value>) -> anyhow::Error {
     if status == reqwest::StatusCode::FORBIDDEN {
-        return Err(EnterprisePolicyRejected(format!("status {status}")).into());
+        let code = body
+            .and_then(Value::as_object)
+            .and_then(|map| map.get("code"))
+            .and_then(Value::as_str);
+        if code == Some(POLICY_FORBIDDEN_CODE) {
+            let message = body
+                .and_then(Value::as_object)
+                .and_then(|map| map.get("message").or_else(|| map.get("msg")))
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            return EnterprisePolicyRejected(message.into()).into();
+        }
     }
-    if !status.is_success() {
-        bail!("enterprise policy request failed with status {status}");
-    }
-    Ok(())
+    anyhow!("enterprise policy request failed with status {status}")
 }
 
 pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
@@ -53,8 +64,12 @@ pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
     {
         let mut state = EnterpriseState::load().await;
         state.clear_policy();
-        state.save().await?;
-        super::runtime::apply_enterprise_runtime_state(&state).await?;
+        if let Err(save_err) = state.save().await {
+            logging!(warn, Type::Core, "保存已拒绝的企业策略状态失败: {}", save_err);
+        }
+        if let Err(apply_err) = super::runtime::apply_enterprise_runtime_state(&state).await {
+            logging!(warn, Type::Core, "策略被拒绝后应用企业运行时状态失败: {}", apply_err);
+        }
     }
     result
 }
@@ -91,7 +106,11 @@ async fn fetch_policy(policy_base_url: &str, access_token: &str, app_code: &str)
         .await
         .context("failed to request enterprise policy")?;
 
-    ensure_policy_status(response.status())?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.json::<Value>().await.ok();
+        return Err(policy_status_error(status, body.as_ref()));
+    }
 
     let value = response
         .json::<Value>()
@@ -357,15 +376,31 @@ mod tests {
     }
 
     #[test]
-    fn forbidden_status_is_a_policy_rejection() {
-        let err = ensure_policy_status(reqwest::StatusCode::FORBIDDEN).unwrap_err();
+    fn forbidden_status_with_matching_code_is_a_policy_rejection() {
+        let body = json!({ "code": "403001", "message": "无权限访问" });
+        let err = policy_status_error(reqwest::StatusCode::FORBIDDEN, Some(&body));
 
         assert!(is_policy_rejection(&err));
     }
 
     #[test]
+    fn forbidden_status_with_other_code_is_not_a_policy_rejection() {
+        let body = json!({ "code": "ERROR" });
+        let err = policy_status_error(reqwest::StatusCode::FORBIDDEN, Some(&body));
+
+        assert!(!is_policy_rejection(&err));
+    }
+
+    #[test]
+    fn forbidden_status_without_body_is_not_a_policy_rejection() {
+        let err = policy_status_error(reqwest::StatusCode::FORBIDDEN, None);
+
+        assert!(!is_policy_rejection(&err));
+    }
+
+    #[test]
     fn server_error_status_is_not_a_policy_rejection() {
-        let err = ensure_policy_status(reqwest::StatusCode::INTERNAL_SERVER_ERROR).unwrap_err();
+        let err = policy_status_error(reqwest::StatusCode::INTERNAL_SERVER_ERROR, None);
 
         assert!(!is_policy_rejection(&err));
     }
