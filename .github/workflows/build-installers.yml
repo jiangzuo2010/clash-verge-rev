@@ -92,8 +92,12 @@ jobs:
       - name: 安装 Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.97.1'
+          toolchain: '1.98.1'
           targets: ${{ matrix.target }}
+
+      # rust-toolchain.toml 固定的版本才是实际编译用的工具链，target 必须装在它上面
+      - name: 添加 Rust target
+        run: rustup target add ${{ matrix.target }}
 
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2

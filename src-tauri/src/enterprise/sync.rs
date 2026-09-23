@@ -10,7 +10,7 @@ use aes_gcm::{
 use anyhow::{Context as _, Result, anyhow, bail};
 use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac as _};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
@@ -180,7 +180,7 @@ fn verify_policy_signature(envelope: &EnterpriseEncryptedPolicyEnvelope) -> Resu
         &envelope.ciphertext,
     );
     let key = derive_policy_key("hmac-sha256");
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&key).context("invalid enterprise policy signing key")?;
+    let mut mac = Hmac::<Sha256>::new_from_slice(&key).context("invalid enterprise policy signing key")?;
     mac.update(payload.as_bytes());
     mac.verify_slice(&expected)
         .map_err(|_| anyhow!("enterprise policy signature verification failed"))
