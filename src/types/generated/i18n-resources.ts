@@ -127,6 +127,7 @@ export interface TranslationResources {
           badges: {
             adminMode: string
             adminServiceMode: string
+            notRunning: string
             serviceMode: string
             sidecarMode: string
           }
@@ -271,6 +272,7 @@ export interface TranslationResources {
             sidecarFailed: string
             stateRefreshFailed: string
           }
+          locationRefusedMessage: string
           message: string
           reinstall: string
           repair: string
@@ -364,6 +366,14 @@ export interface TranslationResources {
         editor: {
           actions: {
             format: string
+          }
+          enhance: {
+            globalMerge: string
+            globalScript: string
+            order: string
+            profileMerge: string
+            profileScript: string
+            settingsPriority: string
           }
           messages: {
             readOnly: string
@@ -493,6 +503,7 @@ export interface TranslationResources {
             updateFailed: string
           }
           notices: {
+            discardedKeys: string
             emergencyRefreshFailed: string
             forceRefreshCompleted: string
           }
@@ -546,6 +557,9 @@ export interface TranslationResources {
             updateFailed: string
             updateSuccess: string
           }
+        }
+        warnings: {
+          invalidTestUrl: string
         }
       }
       page: {
@@ -859,10 +873,12 @@ export interface TranslationResources {
             uninstallFailed: string
           }
           sysproxy: {
+            coreNotReady: string
             directFallback: string
             guardStopped: string
             privilegeRequired: string
             sidecarWhileServiceReady: string
+            systemCallFailed: string
           }
         }
         notifications: {
@@ -876,6 +892,7 @@ export interface TranslationResources {
           }
           clashService: {
             installSuccess: string
+            sidecarFallback: string
             uninstallSuccess: string
           }
           updater: {
@@ -994,6 +1011,7 @@ export interface TranslationResources {
         }
         dns: {
           dialog: {
+            profileScope: string
             title: string
             warning: string
           }
@@ -1081,6 +1099,13 @@ export interface TranslationResources {
           messages: {
             configError: string
             saved: string
+          }
+          protection: {
+            autoDisabled: string
+            enableAnyway: string
+            keepDisabled: string
+            message: string
+            title: string
           }
           sections: {
             fallbackFilter: string

@@ -10,7 +10,11 @@ import {
   type EnterpriseConfigPatch,
   type EnterpriseStateView,
 } from '@/services/enterprise'
-import { revalidateQuery, setCacheData, useQuery } from '@/services/query-client'
+import {
+  revalidateQuery,
+  setCacheData,
+  useQuery,
+} from '@/services/query-client'
 
 const ENTERPRISE_STATE_QUERY_KEY = ['getEnterpriseState'] as const
 
@@ -42,14 +46,11 @@ export const useEnterprise = () => {
     [],
   )
 
-  const patchEnterprise = useCallback(
-    async (patch: EnterpriseConfigPatch) => {
-      const state = await patchEnterpriseConfig(patch)
-      setCacheData(ENTERPRISE_STATE_QUERY_KEY, state)
-      return state
-    },
-    [],
-  )
+  const patchEnterprise = useCallback(async (patch: EnterpriseConfigPatch) => {
+    const state = await patchEnterpriseConfig(patch)
+    setCacheData(ENTERPRISE_STATE_QUERY_KEY, state)
+    return state
+  }, [])
 
   const clearSession = useCallback(async () => {
     const state = await clearEnterpriseSession()

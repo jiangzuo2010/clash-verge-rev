@@ -1,18 +1,10 @@
 import {
-  closestCenter,
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
+  DragDropProvider,
   KeyboardSensor,
   PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  type SortingStrategy,
-} from '@dnd-kit/sortable'
+  type DragEndEvent,
+} from '@dnd-kit/react'
+import { isSortable } from '@dnd-kit/react/sortable'
 import {
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
@@ -40,20 +32,19 @@ import {
   BaseStyledTextField,
   type DialogRef,
 } from '@/components/base'
+import { ProfileItem } from '@/components/profile/profile-item'
 import { ProfileMore } from '@/components/profile/profile-more'
 import {
   ProfileViewer,
   type ProfileViewerRef,
 } from '@/components/profile/profile-viewer'
-import { SortableProfileItem } from '@/components/profile/sortable-profile-item'
 import { ConfigViewer } from '@/components/setting/mods/config-viewer'
 import { useListen } from '@/hooks/use-listen'
-import { useProfiles } from '@/hooks/use-profiles'
+import { fetchProfilesIntoCache, useProfiles } from '@/hooks/use-profiles'
 import {
   createProfile,
   deleteProfile,
   enhanceProfiles,
-  getProfiles,
   getRuntimeLogs,
   importProfile,
   reorderProfile,
@@ -61,58 +52,21 @@ import {
 } from '@/services/cmds'
 import { subscribeVergeEvents } from '@/services/events'
 import { errorDetail, showNotice } from '@/services/notice-service'
-import {
-  fetchCacheData,
-  revalidateQueries,
-  useQuery,
-} from '@/services/query-client'
+import { revalidateQuery, useQuery } from '@/services/query-client'
 import {
   useLoadingCache,
   useSetLoadingCache,
   useThemeMode,
 } from '@/services/states'
 import { debugLog } from '@/utils/debug'
+import { isValidUrl } from '@/utils/network'
 
 // 与 src-tauri/src/main.rs 的 worker_limit 上限(8)保持一致，避免前后端更新风暴不对齐
 const PROFILE_UPDATE_WORKER_LIMIT = 8
 const PROFILE_SWITCH_LOADING_DELAY = 400
-
-// Equivalent to rectSortingStrategy without copying the full rect array for every item.
-const profileRectSortingStrategy: SortingStrategy = ({
-  rects,
-  activeIndex,
-  overIndex,
-  index,
-}) => {
-  let newIndex = index
-
-  if (index === activeIndex) {
-    newIndex = overIndex
-  } else if (
-    activeIndex < overIndex &&
-    index > activeIndex &&
-    index <= overIndex
-  ) {
-    newIndex = index - 1
-  } else if (
-    activeIndex > overIndex &&
-    index >= overIndex &&
-    index < activeIndex
-  ) {
-    newIndex = index + 1
-  }
-
-  const oldRect = rects[index]
-  const newRect = rects[newIndex]
-  if (!oldRect || !newRect) return null
-
-  return {
-    x: newRect.left - oldRect.left,
-    y: newRect.top - oldRect.top,
-    scaleX: newRect.width / oldRect.width,
-    scaleY: newRect.height / oldRect.height,
-  }
-}
+const profilePointerSensor = PointerSensor.configure({
+  activationConstraints: () => undefined,
+})
 
 interface ProfileSwitchRequest {
   profile: string
@@ -131,6 +85,7 @@ const ProfilePage = () => {
   const { addListener } = useListen()
   const [url, setUrl] = useState('')
   const [disabled, setDisabled] = useState(false)
+  const [profileDndRevision, setProfileDndRevision] = useState(0)
   const [activatings, setActivatings] = useState<string[]>([])
   const [switchTarget, setSwitchTarget] = useState<string | null>(null)
   const [visibleSwitchingProfile, setVisibleSwitchingProfile] = useState<
@@ -158,14 +113,6 @@ const ProfilePage = () => {
   )
   const currentProfileRef = useRef<string | undefined>(undefined)
   const profilePageMountedRef = useRef(true)
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  )
   const { current } = location.state || {}
 
   const {
@@ -224,9 +171,7 @@ const ProfilePage = () => {
     debugLog('[紧急刷新] 开始强制刷新所有数据')
 
     try {
-      await revalidateQueries([['getProfiles'], ['getRuntimeLogs']])
-
-      await mutateProfiles()
+      await Promise.all([revalidateQuery(['getRuntimeLogs']), mutateProfiles()])
 
       await new Promise((resolve) => setTimeout(resolve, 500))
       await onEnhance(false)
@@ -261,7 +206,7 @@ const ProfilePage = () => {
 
     const type1 = ['local', 'remote']
 
-    return items.filter((i) => i && type1.includes(i.type!))
+    return items.filter((i) => i?.type && type1.includes(i.type))
   }, [profiles])
 
   const currentActivatings = () => {
@@ -270,7 +215,7 @@ const ProfilePage = () => {
 
   const onImport = async () => {
     if (!url) return
-    if (!/^https?:\/\//i.test(url)) {
+    if (!isValidUrl(url)) {
       showNotice.error('profiles.page.feedback.errors.invalidUrl')
       return
     }
@@ -343,7 +288,7 @@ const ProfilePage = () => {
 
     console.warn(`[导入刷新] 常规刷新失败，尝试清除缓存重新获取`)
     try {
-      await fetchCacheData(['getProfiles'], getProfiles)
+      await fetchProfilesIntoCache()
       await onEnhance(false)
       showNotice.error(
         'profiles.page.feedback.notifications.importNeedsRefresh',
@@ -359,12 +304,31 @@ const ProfilePage = () => {
   }
 
   const onDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over) {
-      if (active.id !== over.id) {
-        await reorderProfile(active.id.toString(), over.id.toString())
-        mutateProfiles()
-      }
+    const { operation, canceled } = event
+    const { source, target } = operation
+    if (canceled || !target || !isSortable(source)) return
+
+    const { index: newIndex, initialIndex: oldIndex } = source.sortable
+    if (
+      oldIndex < 0 ||
+      newIndex < 0 ||
+      oldIndex >= profileItems.length ||
+      newIndex >= profileItems.length ||
+      oldIndex === newIndex
+    ) {
+      return
+    }
+
+    const activeId = profileItems[oldIndex]?.uid
+    const overId = profileItems[newIndex]?.uid
+    if (activeId == null || overId == null || activeId === overId) return
+
+    try {
+      await reorderProfile(activeId, overId)
+      mutateProfiles()
+    } catch (error) {
+      setProfileDndRevision((revision) => revision + 1)
+      showNotice.error(error)
     }
   }
 
@@ -926,100 +890,97 @@ const ProfilePage = () => {
         </Button>
       </Stack>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={onDragEnd}
+      <Box
+        sx={{
+          pl: '10px',
+          pr: '10px',
+          height: 'calc(100% - 48px)',
+          overflowY: 'auto',
+        }}
       >
-        <Box
-          sx={{
-            pl: '10px',
-            pr: '10px',
-            height: 'calc(100% - 48px)',
-            overflowY: 'auto',
-          }}
+        <DragDropProvider
+          key={profileDndRevision}
+          sensors={[profilePointerSensor, KeyboardSensor]}
+          onDragEnd={onDragEnd}
         >
-          <Box sx={{ mb: 1.5 }}>
-            <Grid container spacing={{ xs: 1, lg: 1 }}>
-              <SortableContext
-                strategy={profileRectSortingStrategy}
-                items={profileItems.map((x) => {
-                  return x.uid
-                })}
-              >
-                {profileItems.map((item) => (
-                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={item.file}>
-                    <SortableProfileItem
-                      id={item.uid}
-                      selected={(switchTarget ?? profiles.current) === item.uid}
-                      activating={
-                        activatings.includes(item.uid) ||
-                        visibleSwitchingProfile === item.uid
-                      }
-                      itemData={item}
-                      timerUpdateRevision={
-                        timerUpdateRevisions.get(item.uid) ?? 0
-                      }
-                      completedUpdateRevision={
-                        completedUpdateRevisions.get(item.uid) ?? 0
-                      }
-                      mutateProfiles={mutateProfiles}
-                      onSelect={(f) => onSelect(item.uid, f)}
-                      onEdit={() => viewerRef.current?.edit(item)}
-                      onSave={async (prev, curr) => {
-                        if (prev !== curr && profiles.current === item.uid) {
-                          await onEnhance(false)
-                        }
-                      }}
-                      onDelete={() => {
-                        if (batchMode) {
-                          toggleProfileSelection(item.uid)
-                        } else {
-                          onDelete(item.uid)
-                        }
-                      }}
-                      batchMode={batchMode}
-                      isSelected={selectedProfiles.has(item.uid)}
-                      onSelectionChange={() => toggleProfileSelection(item.uid)}
-                    />
-                  </Grid>
-                ))}
-              </SortableContext>
-            </Grid>
+          <Box
+            sx={{
+              mb: 1.5,
+              display: 'grid',
+              overflow: 'hidden',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: 1,
+              px: 0.5,
+            }}
+          >
+            {profileItems.map((item, index) => (
+              <ProfileItem
+                key={item.uid}
+                id={item.uid}
+                index={index}
+                selected={(switchTarget ?? profiles.current) === item.uid}
+                activating={
+                  activatings.includes(item.uid) ||
+                  visibleSwitchingProfile === item.uid
+                }
+                itemData={item}
+                timerUpdateRevision={timerUpdateRevisions.get(item.uid) ?? 0}
+                completedUpdateRevision={
+                  completedUpdateRevisions.get(item.uid) ?? 0
+                }
+                mutateProfiles={mutateProfiles}
+                onSelect={(f) => onSelect(item.uid, f)}
+                onEdit={() => viewerRef.current?.edit(item)}
+                onSave={async (prev, curr) => {
+                  if (prev !== curr && profiles.current === item.uid) {
+                    await onEnhance(false)
+                  }
+                }}
+                onDelete={() => {
+                  if (batchMode) {
+                    toggleProfileSelection(item.uid)
+                  } else {
+                    onDelete(item.uid)
+                  }
+                }}
+                batchMode={batchMode}
+                isSelected={selectedProfiles.has(item.uid)}
+                onSelectionChange={() => toggleProfileSelection(item.uid)}
+              />
+            ))}
           </Box>
-          <Divider
-            variant="middle"
-            flexItem
-            sx={{ width: `calc(100% - 32px)`, borderColor: dividercolor }}
-          ></Divider>
-          <Box sx={{ mt: 1.5, mb: '10px' }}>
-            <Grid container spacing={{ xs: 1, lg: 1 }}>
-              <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                <ProfileMore
-                  id="Merge"
-                  onSave={async (prev, curr) => {
-                    if (prev !== curr) {
-                      await onEnhance(false)
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
-                <ProfileMore
-                  id="Script"
-                  logInfo={chainLogs['Script']}
-                  onSave={async (prev, curr) => {
-                    if (prev !== curr) {
-                      await onEnhance(false)
-                    }
-                  }}
-                />
-              </Grid>
+        </DragDropProvider>
+        <Divider
+          variant="middle"
+          flexItem
+          sx={{ width: `calc(100% - 32px)`, borderColor: dividercolor }}
+        ></Divider>
+        <Box sx={{ mt: 1.5, mb: '10px' }}>
+          <Grid container spacing={{ xs: 1, lg: 1 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+              <ProfileMore
+                id="Merge"
+                onSave={async (prev, curr) => {
+                  if (prev !== curr) {
+                    await onEnhance(false)
+                  }
+                }}
+              />
             </Grid>
-          </Box>
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+              <ProfileMore
+                id="Script"
+                logInfo={chainLogs['Script']}
+                onSave={async (prev, curr) => {
+                  if (prev !== curr) {
+                    await onEnhance(false)
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
         </Box>
-        <DragOverlay />
-      </DndContext>
+      </Box>
 
       <ProfileViewer
         ref={viewerRef}

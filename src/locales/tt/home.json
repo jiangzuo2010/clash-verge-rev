@@ -110,6 +110,7 @@
         "settings": "Көйләүләр"
       },
       "badges": {
+        "notRunning": "Төш эшләми",
         "adminMode": "Administrator Mode",
         "serviceMode": "Сервис режимы",
         "sidecarMode": "User Mode",

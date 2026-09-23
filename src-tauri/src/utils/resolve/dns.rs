@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use clash_verge_logging::{Type, logging};
 #[cfg(target_os = "macos")]
 use std::path::Path;
@@ -9,7 +10,7 @@ const DNS_STATE_FILE: &str = ".original_dns.txt";
 fn dns_state_dir() -> anyhow::Result<PathBuf> {
     // The DNS scripts persist .original_dns.txt relative to their working directory.
     let dir = crate::utils::dirs::app_home_dir()?;
-    std::fs::create_dir_all(&dir)?;
+    std::fs::create_dir_all(&dir).with_context(|| format!("failed to create DNS state directory {}", dir.display()))?;
     Ok(dir)
 }
 
@@ -27,7 +28,7 @@ pub async fn set_public_dns(dns_server: String) {
     use tauri_plugin_shell::ShellExt as _;
     let app_handle = handle::Handle::app_handle();
 
-    logging!(info, Type::Config, "try to set system dns");
+    logging!(debug, Type::Config, "try to set system dns");
     let resource_dir = match dirs::app_resources_dir() {
         Ok(dir) => dir,
         Err(e) => {
@@ -37,14 +38,14 @@ pub async fn set_public_dns(dns_server: String) {
     };
     let script = resource_dir.join("set_dns.sh");
     if !script.exists() {
-        logging!(error, Type::Config, "set_dns.sh not found");
+        logging!(error, Type::Config, "DNS script not found: {}", script.display());
         return;
     }
     let script = script.to_string_lossy().into_owned();
     let state_dir = match dns_state_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            logging!(error, Type::Config, "Failed to get DNS state directory: {}", e);
+            logging!(error, Type::Config, "Failed to get DNS state directory: {e:#}");
             return;
         }
     };
@@ -75,7 +76,7 @@ pub async fn restore_public_dns() {
     use crate::{core::handle, utils::dirs};
     use tauri_plugin_shell::ShellExt as _;
     let app_handle = handle::Handle::app_handle();
-    logging!(info, Type::Config, "try to unset system dns");
+    logging!(debug, Type::Config, "try to unset system dns");
     let resource_dir = match dirs::app_resources_dir() {
         Ok(dir) => dir,
         Err(e) => {
@@ -85,14 +86,14 @@ pub async fn restore_public_dns() {
     };
     let script = resource_dir.join("unset_dns.sh");
     if !script.exists() {
-        logging!(error, Type::Config, "unset_dns.sh not found");
+        logging!(error, Type::Config, "DNS script not found: {}", script.display());
         return;
     }
     let script = script.to_string_lossy().into_owned();
     let state_dir = match dns_state_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            logging!(error, Type::Config, "Failed to get DNS state directory: {}", e);
+            logging!(error, Type::Config, "Failed to get DNS state directory: {e:#}");
             return;
         }
     };

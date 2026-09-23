@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::{
     config::{DEFAULT_PAC, deserialize_encrypted, serialize_encrypted},
+    constants::network,
     utils::{dirs, help},
 };
 use anyhow::Result;
@@ -56,6 +57,9 @@ pub struct IVerge {
     pub menu_order: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy_group_tools_position: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub notice_position: Option<String>,
 
     pub collapse_navbar: Option<bool>,
@@ -76,8 +80,11 @@ pub struct IVerge {
 
     pub enable_bypass_check: Option<bool>,
 
-    /// enable dns settings - this controls whether dns_config.yaml is applied
+    /// Initial DNS override preference for profiles without a saved setting.
     pub enable_dns_settings: Option<bool>,
+
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub profile_dns_settings: std::collections::BTreeMap<String, super::dns::ProfileDnsSettings>,
 
     pub use_default_bypass: Option<bool>,
 
@@ -261,19 +268,19 @@ impl IVerge {
         }
 
         if needs_fix {
-            logging!(info, Type::Config, "正在保存修正后的配置文件...");
+            logging!(debug, Type::Config, "正在保存修正后的配置文件...");
             help::save_yaml(&config_path, &config, Some("# Clash Verge Config")).await?;
             logging!(info, Type::Config, "配置文件修正完成，需要重新加载配置");
 
-            Self::reload_config_after_fix(config).await?;
+            Self::reload_config_after_fix(config).await;
         } else {
-            logging!(info, Type::Config, "clash_core配置验证通过: {:?}", config.clash_core);
+            logging!(debug, Type::Config, "clash_core配置验证通过: {:?}", config.clash_core);
         }
 
         Ok(())
     }
 
-    async fn reload_config_after_fix(updated_config: Self) -> Result<()> {
+    async fn reload_config_after_fix(updated_config: Self) {
         logging!(
             info,
             Type::Config,
@@ -286,8 +293,6 @@ impl IVerge {
             *d = updated_config;
         });
         config_draft.apply();
-
-        Ok(())
     }
 
     pub fn get_valid_clash_core(&self) -> String {
@@ -306,12 +311,12 @@ impl IVerge {
                     config
                 }
                 Err(err) => {
-                    logging!(error, Type::Config, "{err}");
+                    logging!(error, Type::Config, "failed to read verge config: {err:#}");
                     Self::template()
                 }
             },
             Err(err) => {
-                logging!(error, Type::Config, "{err}");
+                logging!(error, Type::Config, "failed to get verge config path: {err:#}");
                 Self::template()
             }
         }
@@ -357,7 +362,7 @@ impl IVerge {
             verge_tproxy_port: Some(7896),
             #[cfg(target_os = "linux")]
             verge_tproxy_enabled: Some(false),
-            verge_mixed_port: Some(7897),
+            verge_mixed_port: Some(network::ports::DEFAULT_MIXED),
             verge_socks_port: Some(7898),
             verge_socks_enabled: Some(false),
             verge_port: Some(7899),
@@ -422,6 +427,7 @@ impl IVerge {
         patch!(tray_icon);
         patch!(menu_icon);
         patch!(menu_order);
+        patch!(proxy_group_tools_position);
         patch!(notice_position);
         patch!(collapse_navbar);
         patch!(common_tray_icon);

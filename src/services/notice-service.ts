@@ -4,7 +4,7 @@ import { ReactNode, isValidElement } from 'react'
 import type { FailedOperation } from '@/services/cmds'
 import type { TranslationKey } from '@/types/generated/i18n-keys'
 
-type NoticeType = 'success' | 'error' | 'info'
+type NoticeType = 'success' | 'error' | 'info' | 'warning'
 
 interface NoticeTranslationDescriptor {
   key: string
@@ -47,6 +47,7 @@ type ShowNotice = ((
   success: NoticeShortcut
   error: NoticeShortcut
   info: NoticeShortcut
+  warning: NoticeShortcut
 }
 
 type NoticeSubscriber = () => void
@@ -54,6 +55,7 @@ type NoticeSubscriber = () => void
 const DEFAULT_DURATIONS: Readonly<Record<NoticeType, number>> = {
   success: 3000,
   info: 5000,
+  warning: 6000,
   error: 8000,
 }
 
@@ -82,12 +84,15 @@ const CODED_ERROR_TRANSLATION_KEYS: Readonly<Record<string, TranslationKey>> = {
   SERVICE_SIDECAR_FAILED: 'settings.feedback.errors.clashService.sidecarFailed',
   SERVICE_UNINSTALL_FAILED:
     'settings.feedback.errors.clashService.uninstallFailed',
+  SYSPROXY_CORE_NOT_READY: 'settings.feedback.errors.sysproxy.coreNotReady',
   SYSPROXY_DIRECT_FALLBACK: 'settings.feedback.errors.sysproxy.directFallback',
   SYSPROXY_GUARD_STOPPED: 'settings.feedback.errors.sysproxy.guardStopped',
   SYSPROXY_SIDECAR_WHILE_SERVICE_READY:
     'settings.feedback.errors.sysproxy.sidecarWhileServiceReady',
   SYSPROXY_PRIVILEGE_REQUIRED:
     'settings.feedback.errors.sysproxy.privilegeRequired',
+  SYSPROXY_SYSTEM_CALL_FAILED:
+    'settings.feedback.errors.sysproxy.systemCallFailed',
 }
 
 let nextId = 0
@@ -506,6 +511,8 @@ export const showNotice: ShowNotice = Object.assign(baseShowNotice, {
     baseShowNotice('error', message, ...extras),
   info: (message: NoticeContent, ...extras: NoticeExtra[]) =>
     baseShowNotice('info', message, ...extras),
+  warning: (message: NoticeContent, ...extras: NoticeExtra[]) =>
+    baseShowNotice('warning', message, ...extras),
 })
 
 export function hideNotice(id: number) {

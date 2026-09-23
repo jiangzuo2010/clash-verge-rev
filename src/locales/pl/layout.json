@@ -35,7 +35,8 @@
         "restartFailed": "Failed to restart the core",
         "revalidationFailed": "Failed to refresh the running state",
         "sidecarFailed": "Failed to continue with Sidecar"
-      }
+      },
+      "locationRefusedMessage": "The service cannot start the core because its installation path or directory permissions failed a security check. Reinstall the service to restore its files and permissions, then try again. Windows may ask for administrator approval."
     },
     "sysproxyPrivilege": {
       "title": "Could not set the system proxy",

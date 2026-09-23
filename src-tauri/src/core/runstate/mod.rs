@@ -152,6 +152,10 @@ impl<E: RunStateEnv> RunStateStore<E> {
                 self.observe(ServiceHealth::Ready);
                 Ok(self.state())
             }
+            ServiceVersionCheck::CoreUnavailable(error) => {
+                self.observe(ServiceHealth::Unavailable(error.clone()));
+                bail!(error)
+            }
             ServiceVersionCheck::NeedsReinstall(error) => {
                 self.observe(ServiceHealth::VersionMismatch);
                 bail!(error)
@@ -178,7 +182,10 @@ impl<E: RunStateEnv> RunStateStore<E> {
         }
 
         match self.env.probe_service_version().await {
-            Ok(reply) => classify_service_health(probe_outcome(&reply), has_marker, ""),
+            Ok(reply) => match classify_service_version_reply(&reply) {
+                ServiceVersionCheck::CoreUnavailable(reason) => ServiceHealth::Unavailable(reason),
+                _ => classify_service_health(probe_outcome(&reply), has_marker, ""),
+            },
             Err(error) => {
                 logging!(warn, Type::Service, "current service IPC is unavailable: {error:#}");
                 classify_service_health(
@@ -316,6 +323,21 @@ impl<E: RunStateEnv> RunStateStore<E> {
         if !permitted {
             bail!("sidecar cannot be allowed from service state {:?}", state.service);
         }
+        state.service.allow_sidecar();
+        state.bump();
+        drop(state);
+        self.announce();
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn allow_sidecar_after_service_refusal(&self, reason: String) -> Result<()> {
+        let mut state = self.service.lock();
+        if self.operation_running.load(Ordering::Acquire) || state.service.pending.is_some() {
+            bail!("cannot fall back while a service operation is pending");
+        }
+        // Publish the refusal and allowance together so it never asks the UI for a repair.
+        state.service.health = ServiceHealth::Unavailable(reason);
         state.service.allow_sidecar();
         state.bump();
         drop(state);
@@ -472,6 +494,7 @@ mod tests {
 
     fn ready_reply() -> ServiceVersionReply {
         ServiceVersionReply {
+            core: Some(clash_verge_service_ipc::CoreAvailability::Ready),
             code: 0,
             message: "ok".to_owned(),
             protocol: Some(clash_verge_service_ipc::ProtocolInfo::current()),

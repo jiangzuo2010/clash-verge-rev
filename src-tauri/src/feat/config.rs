@@ -1,6 +1,6 @@
 use crate::{
     config::{Config, IVerge},
-    core::{CoreManager, autostart, handle, hotkey, logger::Logger, proxy_control::SystemProxyStateUnknown, tray},
+    core::{CoreManager, autostart, handle, hotkey, logger, proxy_control, tray},
     module::{auto_backup::AutoBackupManager, lightweight},
 };
 use anyhow::Result;
@@ -25,7 +25,6 @@ pub async fn patch_clash(patch: &Mapping) -> Result<()> {
             if patch.get("mode").is_some() {
                 tray::Tray::global().update_menu_and_icon().await;
             }
-            Config::runtime().await.edit_draft(|d| d.patch_config(patch));
             CoreManager::global().update_config_checked().await?;
         }
         handle::Handle::refresh_clash();
@@ -223,7 +222,18 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
     if update_flags.contains(UpdateFlags::SYS_PROXY) {
         let manager = CoreManager::global();
         let _lifecycle = manager.lifecycle_lock.lock().await;
-        manager.apply_proxy_after_start().await?;
+        // Turning it off only writes OS state, so it must stay available while the Core is down.
+        if Config::verge()
+            .await
+            .latest_arc()
+            .enable_system_proxy
+            .unwrap_or_default()
+        {
+            manager.apply_proxy_after_start().await?;
+        } else {
+            proxy_control::apply().await?;
+            proxy_control::refresh_guard().await?;
+        }
     }
     if update_flags.contains(UpdateFlags::HOTKEY)
         && let Some(hotkeys) = &patch.hotkeys
@@ -256,12 +266,12 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         }
     }
     if update_flags.contains(UpdateFlags::LOG_LEVEL) {
-        Logger::global().update_log_level(patch.get_log_level())?;
+        logger::Logger::global().update_log_level(patch.get_log_level())?;
     }
     if update_flags.contains(UpdateFlags::LOG_FILE) {
         let log_max_size = patch.app_log_max_size.unwrap_or(128);
         let log_max_count = patch.app_log_max_count.unwrap_or(8);
-        Logger::global().update_log_config(log_max_size, log_max_count).await?;
+        logger::update_log_config(log_max_size, log_max_count).await?;
     }
     Ok(())
 }
@@ -297,23 +307,8 @@ pub(super) async fn apply_verge_patch_locked(
 
     let update_flags = determine_update_flags(patch);
     logging!(debug, Type::Setup, "Determined update flags: {:?}", update_flags);
-    if let Err(error) = process_terminated_flags(update_flags, patch).await {
-        if !may_commit_system_proxy_disabled(patch, &error) {
-            return Err(error);
-        }
-        // Commit the safe state after a user-requested proxy patch partly lands.
-        verge.edit_draft(|d| d.enable_system_proxy = Some(false));
-        transaction.commit();
-        announce_verge_change();
-        // Persist the forced-off value even when the original patch was pre-saved.
-        let unsaved = verge.data_arc().save_file().await.err();
-        return Err(match unsaved {
-            Some(save) => error.context(format!(
-                "the system proxy state became unknown and the disabled safety value could not be saved: {save:#}"
-            )),
-            None => error,
-        });
-    }
+    // A failed patch rolls back to what the user already had; it never invents a value for them.
+    process_terminated_flags(update_flags, patch).await?;
     transaction.commit();
     announce_verge_change();
 
@@ -321,7 +316,6 @@ pub(super) async fn apply_verge_patch_locked(
     if !not_save_file {
         // 分离数据获取和异步调用
         let verge_data = verge.data_arc();
-        logging!(debug, Type::Setup, "Saving Verge configuration to file...");
         verge_data.save_file().await?;
     }
     Ok(())
@@ -331,65 +325,8 @@ fn announce_verge_change() {
     handle::Handle::refresh_verge();
 }
 
-/// Whether a user proxy patch may commit disabled after a partial write.
-fn may_commit_system_proxy_disabled(patch: &IVerge, error: &anyhow::Error) -> bool {
-    patch.enable_system_proxy.is_some() && SystemProxyStateUnknown::is_in(error)
-}
-
 pub async fn fetch_verge_config() -> Result<SharedDraft<IVerge>> {
     let draft = Config::verge().await;
     let data = draft.data_arc();
     Ok(data)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{IVerge, SystemProxyStateUnknown, may_commit_system_proxy_disabled};
-
-    fn state_unknown() -> anyhow::Error {
-        anyhow::anyhow!("networksetup refused")
-            .context(SystemProxyStateUnknown)
-            .context("failed to apply the system proxy")
-    }
-
-    #[test]
-    fn the_user_turning_the_proxy_on_gets_it_committed_as_off_when_the_os_ended_up_unknown() {
-        let patch = IVerge {
-            enable_system_proxy: Some(true),
-            ..IVerge::default()
-        };
-
-        assert!(may_commit_system_proxy_disabled(&patch, &state_unknown()));
-    }
-
-    #[test]
-    fn a_patch_about_something_else_never_rewrites_the_proxy_setting() {
-        let patch = IVerge {
-            enable_tun_mode: Some(true),
-            ..IVerge::default()
-        };
-
-        assert!(!may_commit_system_proxy_disabled(&patch, &state_unknown()));
-    }
-
-    #[test]
-    fn nothing_is_committed_when_nothing_is_known_to_have_been_written() {
-        let patch = IVerge {
-            enable_system_proxy: Some(true),
-            ..IVerge::default()
-        };
-        let refused = anyhow::anyhow!("networksetup refused").context("failed to apply the system proxy");
-
-        assert!(!may_commit_system_proxy_disabled(&patch, &refused));
-    }
-
-    #[test]
-    fn turning_the_proxy_off_and_failing_that_way_still_commits_off() {
-        let patch = IVerge {
-            enable_system_proxy: Some(false),
-            ..IVerge::default()
-        };
-
-        assert!(may_commit_system_proxy_disabled(&patch, &state_unknown()));
-    }
 }

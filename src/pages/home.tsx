@@ -37,8 +37,10 @@ import { ProxyTunCard } from '@/components/home/proxy-tun-card'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
-import { entry_lightweight_mode, openWebUrl } from '@/services/cmds'
+import { entry_lightweight_mode } from '@/services/cmds'
 import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
+import { showNotice } from '@/services/notice-service'
+import { openExternalUrl } from '@/utils/open-external-url'
 
 const preloadTestCard = () =>
   import('@/components/home/test-card').then((module) => ({
@@ -248,9 +250,11 @@ const HomePage = () => {
     (verge?.home_cards as HomeCardsSettings | undefined) ?? DEFAULT_HOME_CARDS
 
   // 文档链接函数
-  const toGithubDoc = useLockFn(() => {
-    return openWebUrl('https://clash-verge-rev.github.io/index.html')
-  })
+  const toGithubDoc = useLockFn(() =>
+    openExternalUrl('https://clash-verge-rev.github.io/index.html').catch(
+      showNotice.error,
+    ),
+  )
 
   // 新增：打开设置弹窗
   const openSettings = useCallback(() => {

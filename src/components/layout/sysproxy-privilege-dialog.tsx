@@ -8,6 +8,7 @@ import {
   getRuntimeState,
   installService,
   patchVergeConfig,
+  reinstallService,
   restartCore,
   type FailedOperation,
   type PendingFailure,
@@ -20,23 +21,31 @@ import {
   type ServiceRequest,
   type ServiceRequestReason,
 } from '@/services/service-request'
+import getSystem from '@/utils/get-system'
 
-type Remedy = 'installAndRestart' | 'restartOnly'
+type Remedy = 'installAndRestart' | 'reinstallAndRestart' | 'restartOnly'
 
 const remedyFor = (reason: ServiceRequestReason): Remedy =>
-  reason === 'sysproxySidecarReady' ? 'restartOnly' : 'installAndRestart'
+  reason === 'serviceLocationRefused'
+    ? 'reinstallAndRestart'
+    : reason === 'sysproxySidecarReady'
+      ? 'restartOnly'
+      : 'installAndRestart'
 
 const EXPLANATION = {
   sysproxyRefused: 'layout.components.sysproxyPrivilege.message',
   sysproxySidecarReady:
     'layout.components.sysproxyPrivilege.serviceReadyMessage',
   tunNeedsService: 'layout.components.sysproxyPrivilege.tunMessage',
+  serviceLocationRefused:
+    'layout.components.serviceMigration.locationRefusedMessage',
 } as const
 
 const TITLE = {
   sysproxyRefused: 'layout.components.sysproxyPrivilege.title',
   sysproxySidecarReady: 'layout.components.sysproxyPrivilege.title',
   tunNeedsService: 'layout.components.sysproxyPrivilege.tunTitle',
+  serviceLocationRefused: 'layout.components.serviceMigration.repair',
 } as const
 
 const stateToRestore = (
@@ -69,7 +78,6 @@ const STEP_MESSAGE = {
   applying: 'layout.components.sysproxyPrivilege.applying',
 } as const
 
-/** Guide recovery from a refused system-proxy write. */
 export const SysproxyPrivilegeDialog = () => {
   const { t } = useTranslation()
   const { failure, dismiss } = useDialogFailure()
@@ -91,26 +99,38 @@ export const SysproxyPrivilegeDialog = () => {
 
   const handleFix = async () => {
     try {
-      if (remedy === 'installAndRestart') {
+      if (remedy === 'reinstallAndRestart') {
+        setStep('installing')
+        await reinstallService()
+      } else if (remedy === 'installAndRestart') {
         setStep('installing')
         await installService()
       }
       setStep('restarting')
       await restartCore()
 
-      // Verify that restart actually moved the core into the service.
       const runState = await getRuntimeState()
-      if (runState.mode === 'Service') {
-        // Retry the original request now that the service can apply it.
+      const usingAdminFallback =
+        remedy !== 'reinstallAndRestart' &&
+        getSystem() === 'windows' &&
+        runState.mode === 'Sidecar' &&
+        runState.isAdmin &&
+        runState.sidecarAllowed &&
+        runState.service === 'unavailable'
+      if (runState.mode === 'Service' || usingAdminFallback) {
         if (restoring !== undefined) {
           setStep('applying')
           await patchVergeConfig(restoring)
         }
-        showNotice.success(
-          restoring === undefined
-            ? 'settings.sections.proxyControl.messages.installedCheckProxy'
-            : 'settings.sections.proxyControl.messages.installedProxyRestored',
-        )
+        if (!usingAdminFallback) {
+          showNotice.success(
+            remedy === 'reinstallAndRestart'
+              ? 'layout.components.serviceMigration.success'
+              : restoring === undefined
+                ? 'settings.sections.proxyControl.messages.installedCheckProxy'
+                : 'settings.sections.proxyControl.messages.installedProxyRestored',
+          )
+        }
         close()
       } else {
         showNotice.error(
@@ -129,9 +149,11 @@ export const SysproxyPrivilegeDialog = () => {
       open={Boolean(request)}
       title={t(TITLE[reason])}
       okBtn={t(
-        remedy === 'installAndRestart'
-          ? 'settings.sections.proxyControl.actions.installService'
-          : 'settings.sections.proxyControl.actions.switchToServiceMode',
+        remedy === 'reinstallAndRestart'
+          ? 'layout.components.serviceMigration.reinstall'
+          : remedy === 'installAndRestart'
+            ? 'settings.sections.proxyControl.actions.installService'
+            : 'settings.sections.proxyControl.actions.switchToServiceMode',
       )}
       cancelBtn={t('layout.components.sysproxyPrivilege.later')}
       // Keep the primary spinner visible; only cancellation is unavailable.

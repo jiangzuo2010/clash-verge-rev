@@ -1,41 +1,15 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Box, List, Menu, MenuItem, Paper, ThemeProvider } from '@mui/material'
+import { Paper, ThemeProvider } from '@mui/material'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import type { CSSProperties } from 'react'
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 
-import appLogo from '@/assets/image/app_logo.png'
 import { BaseErrorBoundary } from '@/components/base'
-import { LayoutItem } from '@/components/layout/layout-item'
-import { LayoutTraffic } from '@/components/layout/layout-traffic'
+import { LayoutSidebar } from '@/components/layout/layout-sidebar'
 import { NoticeManager } from '@/components/layout/notice-manager'
 import { ServiceMigrationDialog } from '@/components/layout/service-migration-dialog'
 import { SysproxyPrivilegeDialog } from '@/components/layout/sysproxy-privilege-dialog'
-import { UpdateButton } from '@/components/layout/update-button'
 import {
   WindowControls,
   WindowResizeHandles,
@@ -52,22 +26,19 @@ import {
   useCustomTheme,
   useLayoutEvents,
   useLoadingOverlay,
-  useNavMenuOrder,
   usePendingFailures,
 } from './_layout/hooks'
 import { handleNoticeMessage } from './_layout/utils'
-import { navItems } from './_navigation'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
 
+dayjs.extend(relativeTime)
+
+const OS = getSystem()
+
 const LogsPage = lazy(() => import('./logs'))
 
-type NavItem = (typeof navItems)[number]
-
-type MenuContextPosition = { top: number; left: number }
-
-const ENTERPRISE_BASE_PATHS = new Set(['/'])
 const ENTERPRISE_ALWAYS_RESTRICTED_PATHS = new Set(['/profile', '/unlock'])
 const ENTERPRISE_ADVANCED_PATHS = new Set([
   '/proxies',
@@ -78,59 +49,12 @@ const ENTERPRISE_ADVANCED_PATHS = new Set([
 ])
 const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/'])
 
-interface SortableNavMenuItemProps {
-  item: NavItem
-  label: string
-}
-
-const SortableNavMenuItem = ({ item, label }: SortableNavMenuItemProps) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: item.path,
-  })
-
-  const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  if (isDragging) {
-    style.zIndex = 100
-  }
-
-  return (
-    <LayoutItem
-      to={item.path}
-      icon={item.icon}
-      sortable={{
-        setNodeRef,
-        attributes,
-        listeners,
-        style,
-        isDragging,
-      }}
-    >
-      {label}
-    </LayoutItem>
-  )
-}
-
-dayjs.extend(relativeTime)
-
-const OS = getSystem()
-
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
   const { t } = useTranslation()
   const { theme } = useCustomTheme()
-  const { verge, mutateVerge, patchVerge } = useVerge()
+  const { verge } = useVerge()
   const { enterprise } = useEnterprise()
   const { language } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
@@ -145,109 +69,8 @@ const Layout = () => {
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
-
-  const [menuUnlocked, setMenuUnlocked] = useState(false)
-  const [menuContextPosition, setMenuContextPosition] =
-    useState<MenuContextPosition | null>(null)
-
   const windowControlsRef = useRef<any>(null)
   const { decorated } = useWindowDecorations()
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  )
-
-  const handleMenuOrderOptimisticUpdate = useCallback(
-    (order: string[]) => {
-      mutateVerge(
-        (prev) => (prev ? { ...prev, menu_order: order } : prev),
-        false,
-      )
-    },
-    [mutateVerge],
-  )
-
-  const handleMenuOrderPersist = useCallback(
-    (order: string[]) => patchVerge({ menu_order: order }),
-    [patchVerge],
-  )
-
-  const {
-    menuOrder,
-    navItemMap,
-    handleMenuDragEnd,
-    isDefaultOrder,
-    resetMenuOrder,
-  } = useNavMenuOrder({
-    enabled: menuUnlocked,
-    items: navItems,
-    storedOrder: verge?.menu_order,
-    onOptimisticUpdate: handleMenuOrderOptimisticUpdate,
-    onPersist: handleMenuOrderPersist,
-  })
-
-  const visibleMenuOrder = useMemo(() => {
-    if (!enterpriseManaged) {
-      return menuOrder
-    }
-    if (!enterpriseAuthenticated) {
-      return menuOrder.filter((path) => ENTERPRISE_SIGNED_OUT_PATHS.has(path))
-    }
-    return menuOrder.filter((path) => {
-      if (ENTERPRISE_BASE_PATHS.has(path)) {
-        return true
-      }
-      if (ENTERPRISE_ADVANCED_PATHS.has(path)) {
-        return enterpriseAdvancedAccess
-      }
-      return false
-    })
-  }, [
-    enterpriseAdvancedAccess,
-    enterpriseAuthenticated,
-    enterpriseManaged,
-    menuOrder,
-  ])
-
-  const handleMenuContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      event.preventDefault()
-      event.stopPropagation()
-      setMenuContextPosition({ top: event.clientY, left: event.clientX })
-    },
-    [],
-  )
-
-  const handleMenuContextClose = useCallback(() => {
-    setMenuContextPosition(null)
-  }, [])
-
-  const handleResetMenuOrder = useCallback(() => {
-    setMenuContextPosition(null)
-    void resetMenuOrder()
-  }, [resetMenuOrder])
-
-  const handleUnlockMenu = useCallback(() => {
-    setMenuUnlocked(true)
-    setMenuContextPosition(null)
-  }, [])
-
-  const handleLockMenu = useCallback(() => {
-    setMenuUnlocked(false)
-    setMenuContextPosition(null)
-  }, [])
-
-  const handleToggleNavCollapsed = useCallback(() => {
-    setMenuContextPosition(null)
-    void patchVerge({ collapse_navbar: !navCollapsed })
-  }, [navCollapsed, patchVerge])
 
   const customTitlebar = useMemo(
     () =>
@@ -413,159 +236,7 @@ const Layout = () => {
         {customTitlebar}
 
         <div className="layout-content">
-          <div className="layout-content__left">
-            <div className="the-logo" data-tauri-drag-region="false">
-              <div
-                data-tauri-drag-region="true"
-                style={{
-                  height: '27px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Box
-                  component="img"
-                  src={appLogo}
-                  alt="ChinEuro Secure Access"
-                  style={{
-                    height: '36px',
-                    width: '36px',
-                    marginTop: '-3px',
-                    marginRight: '5px',
-                    marginLeft: '-3px',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Box
-                  component="span"
-                  sx={{
-                    alignSelf: 'center',
-                    color: isDark ? 'white' : 'black',
-                    fontFamily: "Georgia, 'Times New Roman', serif",
-                    fontSize: 15,
-                    fontWeight: 600,
-                    lineHeight: 1.05,
-                  }}
-                >
-                  ChinEuro
-                  <br />
-                  Secure Access
-                </Box>
-              </div>
-              <UpdateButton className="the-newbtn" />
-            </div>
-
-            {menuUnlocked && (
-              <Box
-                sx={(theme) => ({
-                  px: 1.5,
-                  py: 0.75,
-                  mx: 'auto',
-                  mb: 1,
-                  maxWidth: 250,
-                  borderRadius: 1.5,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  textAlign: 'center',
-                  color: theme.palette.warning.contrastText,
-                  bgcolor:
-                    theme.palette.mode === 'light'
-                      ? theme.palette.warning.main
-                      : theme.palette.warning.dark,
-                })}
-              >
-                {t('layout.components.navigation.menu.reorderMode')}
-              </Box>
-            )}
-
-            {menuUnlocked ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleMenuDragEnd}
-              >
-                <SortableContext items={visibleMenuOrder}>
-                  <List
-                    className="the-menu"
-                    onContextMenu={handleMenuContextMenu}
-                  >
-                    {visibleMenuOrder.map((path) => {
-                      const item = navItemMap.get(path)
-                      if (!item) {
-                        return null
-                      }
-                      return (
-                        <SortableNavMenuItem
-                          key={item.path}
-                          item={item}
-                          label={t(item.label)}
-                        />
-                      )
-                    })}
-                  </List>
-                </SortableContext>
-              </DndContext>
-            ) : (
-              <List className="the-menu" onContextMenu={handleMenuContextMenu}>
-                {visibleMenuOrder.map((path) => {
-                  const item = navItemMap.get(path)
-                  if (!item) {
-                    return null
-                  }
-                  return (
-                    <LayoutItem key={item.path} to={item.path} icon={item.icon}>
-                      {t(item.label)}
-                    </LayoutItem>
-                  )
-                })}
-              </List>
-            )}
-
-            <Menu
-              open={Boolean(menuContextPosition)}
-              onClose={handleMenuContextClose}
-              anchorReference="anchorPosition"
-              anchorPosition={
-                menuContextPosition
-                  ? {
-                      top: menuContextPosition.top,
-                      left: menuContextPosition.left,
-                    }
-                  : undefined
-              }
-              transitionDuration={200}
-              slotProps={{
-                list: {
-                  sx: { py: 0.5 },
-                },
-              }}
-            >
-              <MenuItem onClick={handleToggleNavCollapsed} dense>
-                {navCollapsed
-                  ? t('layout.components.navigation.menu.expandNavBar')
-                  : t('layout.components.navigation.menu.collapseNavBar')}
-              </MenuItem>
-              <MenuItem
-                onClick={menuUnlocked ? handleLockMenu : handleUnlockMenu}
-                dense
-              >
-                {menuUnlocked
-                  ? t('layout.components.navigation.menu.lock')
-                  : t('layout.components.navigation.menu.unlock')}
-              </MenuItem>
-              <MenuItem
-                onClick={handleResetMenuOrder}
-                dense
-                disabled={isDefaultOrder}
-              >
-                {t('layout.components.navigation.menu.restoreDefaultOrder')}
-              </MenuItem>
-            </Menu>
-
-            <div className="the-traffic">
-              <LayoutTraffic />
-            </div>
-          </div>
+          <LayoutSidebar isDark={isDark} isCollapsed={navCollapsed} />
 
           <div className="layout-content__right">
             <div className="the-bar"></div>

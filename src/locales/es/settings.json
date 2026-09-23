@@ -508,7 +508,15 @@
     "dns": {
       "dialog": {
         "title": "Sobrescritura de DNS",
+        "profileScope": "El estado del interruptor de sobrescritura de DNS se guarda por separado para cada perfil y solo se aplica a ese perfil.",
         "warning": "Si no está seguro de cómo configurar esto, no realice cambios y mantenga deshabilitada la sobrescritura de DNS."
+      },
+      "protection": {
+        "title": "Enable DNS Overwrite?",
+        "message": "This subscription contains custom DNS settings. DNS Overwrite may replace them, preventing nodes from connecting or some websites from loading. Enable it anyway?",
+        "enableAnyway": "Enable anyway",
+        "keepDisabled": "Keep disabled",
+        "autoDisabled": "DNS Overwrite was disabled to preserve the custom DNS settings in the current subscription."
       },
       "sections": {
         "general": "Configuración de DNS",
@@ -660,7 +668,9 @@
         "privilegeRequired": "No se puede establecer el proxy del sistema: macOS rechazó el cambio por falta de permisos. Instale el servicio de Clash Verge; si es administrador, también puede desactivar la exigencia de contraseña de administrador para los ajustes de todo el sistema en las opciones avanzadas de Ajustes del Sistema → Privacidad y seguridad.",
         "directFallback": "No se pudo establecer el proxy del sistema; el tráfico volvió a una conexión directa.",
         "guardStopped": "El guardián del proxy del sistema se detuvo tras varios fallos seguidos. El proxy del sistema ya no se mantiene automáticamente.",
-        "sidecarWhileServiceReady": "No se pudo establecer el proxy del sistema: el servicio de Clash Verge está listo, pero el núcleo sigue ejecutándose como Sidecar. Reinicie el núcleo para cambiar al modo de servicio."
+        "sidecarWhileServiceReady": "No se pudo establecer el proxy del sistema: el servicio de Clash Verge está listo, pero el núcleo sigue ejecutándose como Sidecar. Reinicie el núcleo para cambiar al modo de servicio.",
+        "coreNotReady": "No se pudo activar el proxy del sistema porque el núcleo no está en ejecución. Inicie el núcleo (o instale/repare el servicio de Clash Verge) e inténtelo de nuevo.",
+        "systemCallFailed": "No se pudo escribir el proxy del sistema porque falló una llamada al sistema de Windows. Suele ser transitorio; inténtelo de nuevo."
       }
     },
     "notifications": {
@@ -674,6 +684,7 @@
       },
       "clashService": {
         "installSuccess": "Servicio instalado con éxito",
+        "sidecarFallback": "El servicio no pudo iniciar el núcleo. Se ha cambiado al modo Sidecar; el servicio sigue sin estar disponible.",
         "uninstallSuccess": "Servicio desinstalado con éxito"
       },
       "updater": {

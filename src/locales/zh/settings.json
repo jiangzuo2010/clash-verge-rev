@@ -508,7 +508,15 @@
     "dns": {
       "dialog": {
         "title": "DNS 覆写",
+        "profileScope": "DNS 覆写开关按订阅独立保存，仅对对应订阅生效。",
         "warning": "如果你不清楚这里的设置请不要修改，并保持 DNS 覆写关闭"
+      },
+      "protection": {
+        "title": "是否开启 DNS 覆写？",
+        "message": "当前订阅包含自定义 DNS 配置。开启 DNS 覆写可能覆盖这些配置，导致节点无法连接或部分网站无法访问。是否仍要开启？",
+        "enableAnyway": "仍然开启",
+        "keepDisabled": "保持关闭",
+        "autoDisabled": "检测到当前订阅包含自定义 DNS 配置，已自动关闭 DNS 覆写。"
       },
       "sections": {
         "general": "DNS 设置",
@@ -660,7 +668,9 @@
         "privilegeRequired": "无法设置系统代理：macOS 以权限不足为由拒绝了这次修改。请安装 Clash Verge 服务；管理员也可以在系统设置 → 隐私与安全性的高级选项中，关闭访问系统范围设置需要管理员密码的要求。",
         "directFallback": "系统代理设置失败，已回退为直连。",
         "guardStopped": "系统代理守卫连续多次失败后已停止，系统代理不再被自动维持。",
-        "sidecarWhileServiceReady": "系统代理设置失败：Clash Verge 服务已就绪，但内核仍以 Sidecar 运行。重启内核即可切换到服务模式。"
+        "sidecarWhileServiceReady": "系统代理设置失败：Clash Verge 服务已就绪，但内核仍以 Sidecar 运行。重启内核即可切换到服务模式。",
+        "coreNotReady": "无法开启系统代理：内核尚未运行。请先启动内核（或安装/修复 Clash Verge 服务）后重试。",
+        "systemCallFailed": "系统代理写入失败：Windows 系统调用未成功，通常是瞬时故障。请稍后重试。"
       }
     },
     "notifications": {
@@ -674,6 +684,7 @@
       },
       "clashService": {
         "installSuccess": "已成功安装服务",
+        "sidecarFallback": "服务无法启动内核，已降级为 Sidecar 模式运行，服务仍不可用。",
         "uninstallSuccess": "已成功卸载服务"
       },
       "updater": {

@@ -15,11 +15,12 @@
       },
       "rpm": {
         "depends": ["openssl", "libayatana-appindicator-gtk3"],
+        "recommends": ["policycoreutils", "policycoreutils-python-utils"],
         "desktopTemplate": "./packages/linux/clash-verge.desktop",
         "provides": ["chineuro-proxy"],
         "conflicts": ["chineuro-proxy"],
         "obsoletes": ["chineuro-proxy"],
-        "postInstallScript": "./packages/linux/post-install.sh",
+        "postInstallScript": "./packages/linux/post-install-rpm.sh",
         "preRemoveScript": "./packages/linux/pre-remove.sh"
       }
     },

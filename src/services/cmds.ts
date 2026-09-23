@@ -172,6 +172,32 @@ export async function patchVergeConfig(payload: IVergeConfig) {
   return invoke<void>('patch_verge_config', { payload })
 }
 
+export async function setDnsOverride(
+  profileUid: string,
+  enabled: boolean,
+  confirmation?: string,
+) {
+  return invoke<
+    { status: 'applied' } | { status: 'confirmation_required'; source: string }
+  >('set_dns_override', { profileUid, enabled, confirmation })
+}
+
+export async function takeDnsOverrideNotice() {
+  return invoke<boolean>('take_dns_override_notice')
+}
+
+export async function takeServiceFallbackNotice() {
+  return invoke<boolean>('take_service_fallback_notice')
+}
+
+export async function takeServiceRepairNotice() {
+  return invoke<boolean>('take_service_repair_notice')
+}
+
+export async function takeDiscardedKeysNotice() {
+  return invoke<string | null>('take_discarded_keys_notice')
+}
+
 export async function getSystemProxy() {
   return invoke<{
     enable: boolean
@@ -210,6 +236,17 @@ export async function restartCore() {
   return invoke<void>('restart_core')
 }
 
+export interface CoreUpgradeReport {
+  /** False when the managed core was already at the latest version. */
+  upgraded: boolean
+  from: string
+  to: string
+}
+
+export async function upgradeClashCore(force = false) {
+  return invoke<CoreUpgradeReport>('upgrade_clash_core', { force })
+}
+
 export async function restartApp() {
   return invoke<void>('restart_app')
 }
@@ -230,12 +267,10 @@ export async function openLogsDir() {
   return invoke<void>('open_logs_dir').catch((err) => showNotice.error(err))
 }
 
-export const openWebUrl = async (url: string) => {
-  try {
-    await invoke('open_web_url', { url })
-  } catch (err: any) {
-    showNotice.error(err)
-  }
+export async function syncRuntimeProviders() {
+  return invoke<void>('sync_runtime_providers').catch((err) => {
+    console.warn('failed to queue the provider cache sync', err)
+  })
 }
 
 export async function cmdTestDelay(url: string) {

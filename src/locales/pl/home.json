@@ -113,7 +113,8 @@
         "adminMode": "Administrator Mode",
         "serviceMode": "Service Mode",
         "sidecarMode": "User Mode",
-        "adminServiceMode": "Admin + Service Mode"
+        "adminServiceMode": "Admin + Service Mode",
+        "notRunning": "Core Not Running"
       }
     },
     "ipInfo": {

@@ -872,6 +872,7 @@ interface IVergeConfig {
   pause_render_traffic_stats_on_blur?: boolean
   menu_icon?: 'monochrome' | 'colorful' | 'disable'
   menu_order?: string[]
+  proxy_group_tools_position?: 'left' | 'right'
   notice_position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   collapse_navbar?: boolean
   tray_icon?: 'monochrome' | 'colorful'
@@ -889,6 +890,7 @@ interface IVergeConfig {
   enable_system_proxy?: boolean
   enable_global_hotkey?: boolean
   enable_dns_settings?: boolean
+  profile_dns_settings?: Record<string, { enabled: boolean }>
   proxy_auto_config?: boolean
   pac_file_content?: string
   proxy_host?: string
@@ -972,7 +974,6 @@ interface ITrafficDataPoint {
   up: number
   down: number
   timestamp: number
-  name: string
 }
 
 interface ISamplingConfig {
@@ -1005,10 +1006,6 @@ interface ITrafficWorkerAppendMessage {
   }
 }
 
-interface ITrafficWorkerClearMessage {
-  type: 'clear'
-}
-
 interface ITrafficWorkerSetRangeMessage {
   type: 'setRange'
   minutes: number
@@ -1021,24 +1018,14 @@ interface ITrafficWorkerRequestSnapshotMessage {
 type TrafficWorkerRequestMessage =
   | ITrafficWorkerInitMessage
   | ITrafficWorkerAppendMessage
-  | ITrafficWorkerClearMessage
   | ITrafficWorkerSetRangeMessage
   | ITrafficWorkerRequestSnapshotMessage
 
 interface ITrafficWorkerSnapshotMessage {
   type: 'snapshot'
   dataPoints: ITrafficDataPoint[]
-  availableDataPoints: ITrafficDataPoint[]
   samplerStats: ISamplerStats
-  rangeMinutes: number
   lastTimestamp?: number
-  reason:
-    | 'init'
-    | 'interval'
-    | 'range-change'
-    | 'request'
-    | 'append-throttle'
-    | 'clear'
 }
 
 interface ITrafficWorkerLogMessage {

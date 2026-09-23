@@ -1,4 +1,4 @@
-use super::{Config, ConfigType, IClashTemp, IVerge, MixedPort};
+use super::{Config, IClashTemp, IVerge, MixedPort};
 use crate::{
     constants::timing,
     core::{
@@ -36,14 +36,6 @@ static STARTUP_CORE_BLOCK_REASON: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mut
 
 impl Config {
     pub(crate) async fn resolve_startup_mixed_port() -> Result<bool> {
-        Self::resolve_startup_mixed_port_inner().await
-    }
-
-    pub(crate) async fn retry_startup_mixed_port_fallback() -> Result<bool> {
-        Self::resolve_startup_mixed_port_inner().await
-    }
-
-    async fn resolve_startup_mixed_port_inner() -> Result<bool> {
         let _config_write = Self::lock_config_write().await;
         let clash = Self::clash().await.latest_arc();
         let verge = Self::verge().await.latest_arc();
@@ -137,15 +129,18 @@ impl Config {
             .await
             .context("failed to materialize runtime configuration with fallback port")?;
 
+        let yaml = Self::runtime_config_yaml()
+            .await
+            .context("failed to validate runtime configuration with fallback port")?;
         let validation = CoreConfigValidator::global()
-            .validate_config_outcome()
+            .validate_config_outcome_with(&yaml)
             .await
             .context("failed to validate runtime configuration with fallback port")?;
         if !validation.is_valid() {
             bail!("runtime configuration with fallback port is invalid: {validation}");
         }
 
-        Self::generate_file(ConfigType::Run)
+        Self::generate_file()
             .await
             .context("failed to write Runtime Configuration")?;
         Ok(())
@@ -270,7 +265,7 @@ async fn owned_service_core_uses_port(port: u16) -> bool {
             logging!(
                 warn,
                 Type::Service,
-                "Current user's service core is active but its mixed proxy port is unavailable: {error}; \
+                "Current user's service core is active but its mixed proxy port is unavailable: {error:#}; \
                  preserving the selected port until core replacement resolves ownership"
             );
             true
@@ -287,7 +282,7 @@ fn configured_listener_ports(clash: &IClashTemp, verge: &IVerge) -> HashSet<u16>
         }
     }
 
-    if let Ok(controller) = SocketAddr::from_str(IClashTemp::guard_external_controller(&clash.0).as_str()) {
+    if let Ok(controller) = SocketAddr::from_str(IClashTemp::guard_server_ctrl(&clash.0).as_str()) {
         ports.insert(controller.port());
     }
 

@@ -508,7 +508,8 @@
     "dns": {
       "dialog": {
         "title": "DNS Overwrite",
-        "warning": "If you are not familiar with these settings, please do not modify them and keep DNS Overwrite enabled"
+        "warning": "If you are not familiar with these settings, please do not modify them and keep DNS Overwrite enabled",
+        "profileScope": "The DNS override switch is saved separately for each profile and applies only to that profile."
       },
       "sections": {
         "general": "DNS Settings",
@@ -599,6 +600,13 @@
       "errors": {
         "invalid": "Invalid configuration",
         "invalidYaml": "Invalid YAML format"
+      },
+      "protection": {
+        "title": "Enable DNS Overwrite?",
+        "message": "This subscription contains custom DNS settings. DNS Overwrite may replace them, preventing nodes from connecting or some websites from loading. Enable it anyway?",
+        "enableAnyway": "Enable anyway",
+        "keepDisabled": "Keep disabled",
+        "autoDisabled": "DNS Overwrite was disabled to preserve the custom DNS settings in the current subscription."
       }
     },
     "webUI": {
@@ -660,7 +668,9 @@
         "privilegeRequired": "Cannot set the system proxy: macOS refused the change for lack of privileges. Install the Clash Verge service; an administrator can also turn off the administrator-password requirement for system-wide settings, in the advanced options of System Settings → Privacy & Security.",
         "directFallback": "Failed to set the system proxy; traffic has been switched back to a direct connection.",
         "guardStopped": "The system proxy guard stopped after failing several times running. The system proxy is no longer being kept in place.",
-        "sidecarWhileServiceReady": "The system proxy could not be set because the core is still running as a Sidecar, although the Clash Verge service is ready. Restart the core to switch to service mode."
+        "sidecarWhileServiceReady": "The system proxy could not be set because the core is still running as a Sidecar, although the Clash Verge service is ready. Restart the core to switch to service mode.",
+        "coreNotReady": "The system proxy could not be enabled because the core is not running. Start the core (or install/repair the Clash Verge service) and try again.",
+        "systemCallFailed": "The system proxy could not be written because a Windows system call failed. This is usually transient, so try again."
       }
     },
     "notifications": {
@@ -674,7 +684,8 @@
       },
       "clashService": {
         "installSuccess": "Service Installed Successfully",
-        "uninstallSuccess": "Service Uninstalled Successfully"
+        "uninstallSuccess": "Service Uninstalled Successfully",
+        "sidecarFallback": "The service could not start the core. Switched to Sidecar mode; the service remains unavailable."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",

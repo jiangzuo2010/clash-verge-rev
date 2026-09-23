@@ -508,7 +508,15 @@
     "dns": {
       "dialog": {
         "title": "DNS 覆寫",
+        "profileScope": "DNS 覆寫開關依訂閱分別儲存，僅對對應訂閱生效。",
         "warning": "如果你不清楚這裡的設定請不要修改，並保持 DNS 覆寫關閉"
+      },
+      "protection": {
+        "title": "是否開啟 DNS 覆寫？",
+        "message": "目前訂閱包含自訂 DNS 設定。開啟 DNS 覆寫可能覆蓋這些設定，導致節點無法連線或部分網站無法存取。是否仍要開啟？",
+        "enableAnyway": "仍然開啟",
+        "keepDisabled": "保持關閉",
+        "autoDisabled": "偵測到目前訂閱包含自訂 DNS 設定，已自動關閉 DNS 覆寫。"
       },
       "sections": {
         "general": "DNS 設定",
@@ -660,7 +668,9 @@
         "privilegeRequired": "無法設定系統代理：macOS 以權限不足為由拒絕了這次修改。請安裝 Clash Verge 服務；管理者也可以在系統設定 → 隱私權與安全性的進階選項中，關閉存取系統層級設定需要管理者密碼的要求。",
         "directFallback": "系統代理設定失敗，已回退為直連。",
         "guardStopped": "系統代理守衛連續多次失敗後已停止，系統代理不再被自動維持。",
-        "sidecarWhileServiceReady": "系統代理設定失敗：Clash Verge 服務已就緒，但內核仍以 Sidecar 執行。重新啟動內核即可切換到服務模式。"
+        "sidecarWhileServiceReady": "系統代理設定失敗：Clash Verge 服務已就緒，但內核仍以 Sidecar 執行。重新啟動內核即可切換到服務模式。",
+        "coreNotReady": "無法開啟系統代理：內核尚未執行。請先啟動內核（或安裝/修復 Clash Verge 服務）後重試。",
+        "systemCallFailed": "系統代理寫入失敗：Windows 系統呼叫未成功，通常是瞬時故障。請稍後重試。"
       }
     },
     "notifications": {
@@ -674,6 +684,7 @@
       },
       "clashService": {
         "installSuccess": "已成功安裝服務",
+        "sidecarFallback": "服務無法啟動核心，已降級為 Sidecar 模式執行，服務仍無法使用。",
         "uninstallSuccess": "已成功解除安裝服務"
       },
       "updater": {
