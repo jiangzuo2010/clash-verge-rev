@@ -52,6 +52,7 @@ mod tests {
                     rule_type: EnterpriseAllowRuleType::Domain,
                     value: "docs.company.example".into(),
                 }],
+                access: Default::default(),
             },
         });
 

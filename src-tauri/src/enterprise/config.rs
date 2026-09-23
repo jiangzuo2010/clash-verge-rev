@@ -77,6 +77,7 @@ mod tests {
                     value: ".corp.company.example".into(),
                 },
             ],
+            access: Default::default(),
         }
     }
 

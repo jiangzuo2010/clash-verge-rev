@@ -15,6 +15,15 @@ pub struct EnterprisePolicy {
     pub refresh_after_seconds: u64,
     pub proxy: EnterpriseProxy,
     pub allowlist: Vec<EnterpriseAllowRule>,
+    #[serde(default)]
+    pub access: EnterprisePolicyAccess,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct EnterprisePolicyAccess {
+    #[serde(default)]
+    pub advanced: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -224,6 +233,7 @@ mod tests {
                     value: "10.10.0.0/16".into(),
                 },
             ],
+            access: Default::default(),
         }
     }
 
@@ -272,5 +282,36 @@ mod tests {
             rule.mihomo_rule("COMPANY-PROXY"),
             "DOMAIN-SUFFIX,corp.company.example,COMPANY-PROXY"
         );
+    }
+
+    #[test]
+    fn policy_without_access_defaults_to_no_advanced_access() {
+        let policy: EnterprisePolicy = serde_json::from_value(serde_json::json!({
+            "version": "v1",
+            "mode": "managed-allowlist",
+            "expiresAt": "2099-01-01T00:00:00Z",
+            "refreshAfterSeconds": 600,
+            "proxy": { "name": "company-proxy", "type": "http", "server": "proxy.company.example", "port": 443 },
+            "allowlist": []
+        }))
+        .unwrap();
+
+        assert!(!policy.access.advanced);
+    }
+
+    #[test]
+    fn policy_reads_advanced_access_from_server() {
+        let policy: EnterprisePolicy = serde_json::from_value(serde_json::json!({
+            "version": "v1",
+            "mode": "managed-allowlist",
+            "expiresAt": "2099-01-01T00:00:00Z",
+            "refreshAfterSeconds": 600,
+            "proxy": { "name": "company-proxy", "type": "http", "server": "proxy.company.example", "port": 443 },
+            "allowlist": [],
+            "access": { "advanced": true }
+        }))
+        .unwrap();
+
+        assert!(policy.access.advanced);
     }
 }
