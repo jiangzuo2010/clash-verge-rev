@@ -15,9 +15,6 @@ export type EnterpriseConfigPatch = Partial<EnterpriseConfig>
 
 interface EnterpriseSessionView {
   authenticated: boolean
-  isSuperAdmin?: boolean
-  permissions?: string[]
-  roles?: string[]
   userId?: string
   username?: string
   tenantId?: string
@@ -40,6 +37,7 @@ interface EnterpriseAllowedResource {
 export interface EnterpriseStateView {
   config: EnterpriseConfig
   session: EnterpriseSessionView
+  advancedAccess?: boolean
   policyStatus?: EnterprisePolicyStatus
   allowedResources?: EnterpriseAllowedResource[]
 }
