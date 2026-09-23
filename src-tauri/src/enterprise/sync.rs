@@ -18,6 +18,33 @@ use sha2::{Digest as _, Sha256};
 const POLICY_PATH: &str = "/enterprise/proxy/policy";
 const POLICY_CRYPTO_DEFAULT_SECRET: &str = "chineuro-enterprise-policy-transport-secret-v1";
 const POLICY_CRYPTO_ALGORITHM: &str = "AES-256-GCM";
+const POLICY_FORBIDDEN_CODE: &str = "403001";
+
+/// The policy service refused this user; a cached policy must not outlive that decision.
+#[derive(Debug)]
+struct EnterprisePolicyRejected(String);
+
+impl std::fmt::Display for EnterprisePolicyRejected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enterprise policy request rejected: {}", self.0)
+    }
+}
+
+impl std::error::Error for EnterprisePolicyRejected {}
+
+pub fn is_policy_rejection(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<EnterprisePolicyRejected>().is_some()
+}
+
+fn ensure_policy_status(status: reqwest::StatusCode) -> Result<()> {
+    if status == reqwest::StatusCode::FORBIDDEN {
+        return Err(EnterprisePolicyRejected(format!("status {status}")).into());
+    }
+    if !status.is_success() {
+        bail!("enterprise policy request failed with status {status}");
+    }
+    Ok(())
+}
 
 pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
     let mut state = refresh_enterprise_session_if_needed().await?;
@@ -51,10 +78,7 @@ async fn fetch_policy(policy_base_url: &str, access_token: &str, app_code: &str)
         .await
         .context("failed to request enterprise policy")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        bail!("enterprise policy request failed with status {status}");
-    }
+    ensure_policy_status(response.status())?;
 
     let value = response
         .json::<Value>()
@@ -113,6 +137,9 @@ fn unwrap_result_payload(value: Value) -> Result<Value> {
             .or_else(|| map.get("msg"))
             .and_then(Value::as_str)
             .unwrap_or("unknown");
+        if code == Some(POLICY_FORBIDDEN_CODE) {
+            return Err(EnterprisePolicyRejected(message.into()).into());
+        }
         bail!("enterprise policy request failed: {message}");
     }
 
@@ -314,5 +341,35 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn forbidden_status_is_a_policy_rejection() {
+        let err = ensure_policy_status(reqwest::StatusCode::FORBIDDEN).unwrap_err();
+
+        assert!(is_policy_rejection(&err));
+    }
+
+    #[test]
+    fn server_error_status_is_not_a_policy_rejection() {
+        let err = ensure_policy_status(reqwest::StatusCode::INTERNAL_SERVER_ERROR).unwrap_err();
+
+        assert!(!is_policy_rejection(&err));
+    }
+
+    #[test]
+    fn forbidden_result_code_is_a_policy_rejection() {
+        let err =
+            decode_policy_response(serde_json::json!({ "code": "403001", "message": "无权限访问" }), true).unwrap_err();
+
+        assert!(is_policy_rejection(&err));
+    }
+
+    #[test]
+    fn internal_error_result_code_is_not_a_policy_rejection() {
+        let err = decode_policy_response(serde_json::json!({ "code": "INTERNAL_ERROR", "message": "boom" }), true)
+            .unwrap_err();
+
+        assert!(!is_policy_rejection(&err));
     }
 }
