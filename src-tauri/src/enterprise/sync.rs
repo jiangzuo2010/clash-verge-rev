@@ -32,7 +32,7 @@ impl std::fmt::Display for EnterprisePolicyRejected {
 
 impl std::error::Error for EnterprisePolicyRejected {}
 
-pub fn is_policy_rejection(err: &anyhow::Error) -> bool {
+fn is_policy_rejection(err: &anyhow::Error) -> bool {
     err.downcast_ref::<EnterprisePolicyRejected>().is_some()
 }
 
@@ -47,6 +47,19 @@ fn ensure_policy_status(status: reqwest::StatusCode) -> Result<()> {
 }
 
 pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
+    let result = sync_policy_once().await;
+    if let Err(err) = &result
+        && is_policy_rejection(err)
+    {
+        let mut state = EnterpriseState::load().await;
+        state.clear_policy();
+        state.save().await?;
+        super::runtime::apply_enterprise_runtime_state(&state).await?;
+    }
+    result
+}
+
+async fn sync_policy_once() -> Result<EnterpriseState> {
     let mut state = refresh_enterprise_session_if_needed().await?;
     let access_token = state
         .session

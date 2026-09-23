@@ -21,4 +21,4 @@ pub use state::{
     EnterpriseConfig, EnterpriseConfigPatch, EnterprisePendingAuth, EnterpriseSession, EnterpriseState,
     EnterpriseStateView, ensure_personal_mode,
 };
-pub use sync::{is_policy_rejection, sync_enterprise_policy_from_server};
+pub use sync::sync_enterprise_policy_from_server;

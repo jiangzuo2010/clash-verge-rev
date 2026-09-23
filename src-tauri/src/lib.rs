@@ -152,13 +152,7 @@ mod app_init {
                     }
                     Err(err) => {
                         logging!(warn, Type::Setup, "同步企业策略失败: {}", err);
-                        let mut state = enterprise::EnterpriseState::load().await;
-                        if enterprise::is_policy_rejection(&err) {
-                            state.clear_policy();
-                            if let Err(err) = state.save().await {
-                                logging!(warn, Type::Setup, "清除被拒绝的企业策略出错: {}", err);
-                            }
-                        }
+                        let state = enterprise::EnterpriseState::load().await;
                         if let Err(err) = enterprise::apply_enterprise_runtime_state(&state).await {
                             logging!(warn, Type::Setup, "同步失败后关闭企业运行时出错: {}", err);
                         }
