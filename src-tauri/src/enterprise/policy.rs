@@ -200,6 +200,7 @@ fn has_rule_separator(value: &str) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -294,7 +295,7 @@ mod tests {
             "proxy": { "name": "company-proxy", "type": "http", "server": "proxy.company.example", "port": 443 },
             "allowlist": []
         }))
-        .unwrap();
+        .expect("policy JSON should deserialize");
 
         assert!(!policy.access.advanced);
     }
@@ -310,7 +311,7 @@ mod tests {
             "allowlist": [],
             "access": { "advanced": true }
         }))
-        .unwrap();
+        .expect("policy JSON should deserialize");
 
         assert!(policy.access.advanced);
     }

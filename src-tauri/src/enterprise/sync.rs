@@ -407,8 +407,8 @@ mod tests {
 
     #[test]
     fn forbidden_result_code_is_a_policy_rejection() {
-        let err =
-            decode_policy_response(serde_json::json!({ "code": "403001", "message": "无权限访问" }), true).unwrap_err();
+        let err = decode_policy_response(serde_json::json!({ "code": "403001", "message": "无权限访问" }), true)
+            .expect_err("non-success result code must be an error");
 
         assert!(is_policy_rejection(&err));
     }
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn internal_error_result_code_is_not_a_policy_rejection() {
         let err = decode_policy_response(serde_json::json!({ "code": "INTERNAL_ERROR", "message": "boom" }), true)
-            .unwrap_err();
+            .expect_err("non-success result code must be an error");
 
         assert!(!is_policy_rejection(&err));
     }
