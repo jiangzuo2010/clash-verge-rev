@@ -178,7 +178,7 @@ jobs:
           name: ChinEuro-Secure-Access-${{ matrix.target }}
           path: artifacts/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
   release:
     name: 发布 Release
