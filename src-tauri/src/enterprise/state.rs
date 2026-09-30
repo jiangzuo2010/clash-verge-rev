@@ -293,6 +293,29 @@ impl EnterpriseState {
     }
 }
 
+/// Being signed out of enterprise mode is a normal state, not a configuration error.
+#[derive(Debug)]
+struct EnterpriseLoginRequired;
+
+impl std::fmt::Display for EnterpriseLoginRequired {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("enterprise mode requires login")
+    }
+}
+
+impl std::error::Error for EnterpriseLoginRequired {}
+
+pub fn ensure_managed_config_allowed(state: &EnterpriseState) -> Result<()> {
+    if state.config.enabled && !state.is_authenticated() {
+        return Err(EnterpriseLoginRequired.into());
+    }
+    Ok(())
+}
+
+pub fn is_login_required(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<EnterpriseLoginRequired>().is_some()
+}
+
 pub async fn ensure_personal_mode(operation: &str) -> Result<()> {
     let state = EnterpriseState::load().await;
     if state.config.enabled {
@@ -476,6 +499,28 @@ mod tests {
         });
 
         assert!(!state.has_valid_cached_policy());
+    }
+
+    #[test]
+    fn signed_out_enterprise_mode_needs_login_before_generating_config() {
+        let state = EnterpriseState::default();
+
+        let result = ensure_managed_config_allowed(&state);
+
+        assert!(result.as_ref().is_err_and(is_login_required));
+    }
+
+    #[test]
+    fn signed_in_enterprise_mode_may_generate_config() {
+        assert!(ensure_managed_config_allowed(&authenticated_state()).is_ok());
+    }
+
+    #[test]
+    fn personal_mode_may_generate_config() {
+        let mut state = EnterpriseState::default();
+        state.config.enabled = false;
+
+        assert!(ensure_managed_config_allowed(&state).is_ok());
     }
 
     fn authenticated_state() -> EnterpriseState {

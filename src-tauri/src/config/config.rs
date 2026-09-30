@@ -11,7 +11,7 @@ use crate::{
         validate::CoreConfigValidator,
     },
     enhance,
-    enterprise::{EnterpriseState, build_managed_proxy_config},
+    enterprise::{EnterpriseState, build_managed_proxy_config, ensure_managed_config_allowed, is_login_required},
     process::AsyncHandler,
     utils::{dirs, help},
 };
@@ -140,6 +140,11 @@ impl Config {
 
     async fn generate_and_validate() -> Result<Option<(&'static str, String)>> {
         if let Err(err) = Self::generate().await {
+            if is_login_required(&err) {
+                logging!(info, Type::Config, "企业模式尚未登录，使用默认配置启动");
+                CoreManager::global().apply_default_config().await?;
+                return Ok(None);
+            }
             let error_msg: String = err.to_string().into();
             logging!(error, Type::Config, "生成运行时配置失败: {}", error_msg);
             CoreManager::global()
@@ -231,9 +236,7 @@ impl Config {
         // Enterprise gating lives here rather than in `generate` because the core manager
         // calls this entry point directly.
         let enterprise_state = EnterpriseState::load().await;
-        if enterprise_state.config.enabled && !enterprise_state.is_authenticated() {
-            anyhow::bail!("enterprise mode requires login");
-        }
+        ensure_managed_config_allowed(&enterprise_state)?;
 
         let (mut config, exists_keys, logs, dns_override) = enhance::enhance(profiles).await?;
 

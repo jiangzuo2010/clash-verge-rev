@@ -19,6 +19,6 @@ pub use scheduler::next_policy_refresh_delay_secs;
 pub use session::{hydrate_enterprise_user, refresh_enterprise_session_if_needed, revoke_enterprise_session};
 pub use state::{
     EnterpriseConfig, EnterpriseConfigPatch, EnterprisePendingAuth, EnterpriseSession, EnterpriseState,
-    EnterpriseStateView, ensure_personal_mode,
+    EnterpriseStateView, ensure_managed_config_allowed, ensure_personal_mode, is_login_required,
 };
 pub use sync::sync_enterprise_policy_from_server;
