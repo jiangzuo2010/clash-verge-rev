@@ -6,10 +6,10 @@
 
 | 架构 | 产物 | 适用机器 |
 | --- | --- | --- |
-| `aarch64-apple-darwin` | `ChinEuro Secure Access_<版本>_aarch64.dmg` | M1/M2/M3/M4 Mac |
-| `x86_64-apple-darwin` | `ChinEuro Secure Access_<版本>_x64.dmg` | Intel Mac |
-| `x86_64-pc-windows-msvc` | `ChinEuro Secure Access_<版本>_x64-setup.exe` | 绝大多数 Windows PC |
-| `aarch64-pc-windows-msvc` | `ChinEuro Secure Access_<版本>_arm64-setup.exe` | 骁龙 X / Surface Pro X |
+| `aarch64-apple-darwin` | `ChinEuro.Secure.Access_<版本>_aarch64.dmg` | M1/M2/M3/M4 Mac |
+| `x86_64-apple-darwin` | `ChinEuro.Secure.Access_<版本>_x64.dmg` | Intel Mac |
+| `x86_64-pc-windows-msvc` | `ChinEuro.Secure.Access_<版本>_x64-setup.exe` | 绝大多数 Windows PC |
+| `aarch64-pc-windows-msvc` | `ChinEuro.Secure.Access_<版本>_arm64-setup.exe` | 骁龙 X / Surface Pro X |
 
 配置了自更新签名密钥时，还会附带 `.app.tar.gz` / `.sig` 等自更新产物。
 

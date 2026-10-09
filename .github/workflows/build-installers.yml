@@ -171,6 +171,12 @@ jobs:
             find "$bundle/nsis" \( -name '*.exe' -o -name '*.sig' \) -exec cp {} "$out/" \;
           fi
 
+          # GitHub Release 会把文件名里的空格换成点，latest.json 的下载地址按最终文件名生成
+          shopt -s nullglob
+          for f in "$out"/*' '*; do
+            mv "$f" "$out/$(basename "$f" | tr ' ' '.')"
+          done
+
           echo '本次产物：'
           ls -lh "$out"
 
