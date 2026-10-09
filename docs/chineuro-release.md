@@ -21,7 +21,7 @@
     "updater": {
       "pubkey": "<public-key-content>",
       "endpoints": [
-        "https://updates.chineuro.com/chineuro-proxy/{{target}}/{{arch}}/{{current_version}}"
+        "https://updates.taxspace.eu/chineuro-proxy/latest.json"
       ]
     }
   }
@@ -44,19 +44,16 @@
    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<password-if-any>"
    ```
 
-4. 构建后发布 updater JSON。动态更新服务返回 `204` 表示无更新，返回 `200` 时必须包含：
+4. 推 `v*` tag 后，`build-installers.yml` 的 Release 里会附带 `latest.json`（静态更新清单）。发布时把该 Release 的全部文件原样上传到更新站点：
 
-   ```json
-   {
-     "version": "2.5.1",
-     "pub_date": "2026-05-12T00:00:00Z",
-     "url": "https://updates.chineuro.com/chineuro-proxy/darwin/aarch64/ChinEuro Secure Access.app.tar.gz",
-     "signature": "<content-of-.sig-file>",
-     "notes": "release notes"
-   }
+   ```text
+   https://updates.taxspace.eu/chineuro-proxy/latest.json          ← 覆盖为最新版本的清单
+   https://updates.taxspace.eu/chineuro-proxy/v<版本>/<安装包与 .sig>  ← 清单里的下载地址指向这里
    ```
 
-生产环境必须替换 `https://updates.chineuro.com/...` 为公司实际更新服务或 CDN 地址。
+   客户端只比较 `latest.json` 的 `version`，比自己新才提示更新；先上传 `v<版本>/` 目录，最后再覆盖 `latest.json`，避免清单先指向尚未上传的文件。
+
+更新地址编译进安装包，换域名后已安装的旧版本找不到新版本，只能手动重装一次。
 
 ## 企业配置传输安全
 

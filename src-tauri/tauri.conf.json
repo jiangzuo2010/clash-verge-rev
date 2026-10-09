@@ -32,9 +32,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDQzEyQjlBMjYwRjM1ClJXUTFEeWFhSzhIc0FGNXlzZ1p4YW9LTUtYNDdUV25TSlhsR3NZVHZxSzljalpPODNkdkZYajFRCg==",
-      "endpoints": [
-        "https://updates.chineuro.com/chineuro-proxy/{{target}}/{{arch}}/{{current_version}}"
-      ],
+      "endpoints": ["https://updates.taxspace.eu/chineuro-proxy/latest.json"],
       "windows": {
         "installMode": "passive"
       }

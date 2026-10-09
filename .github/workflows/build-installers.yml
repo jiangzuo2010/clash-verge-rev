@@ -157,9 +157,16 @@ jobs:
 
           if [[ '${{ matrix.platform }}' == 'macos' ]]; then
             find "$bundle/dmg" -name '*.dmg' -exec cp {} "$out/" \;
-            # 自更新产物只在配了签名密钥时才有
-            find "$bundle/macos" \( -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) \
-              -exec cp {} "$out/" \; 2>/dev/null || true
+            # 自更新产物只在配了签名密钥时才有。两个架构的 .app.tar.gz 同名，
+            # 合并进同一个 Release 会互相覆盖，按 dmg 的命名规则带上版本和架构
+            version=$(jq -r .version src-tauri/tauri.conf.json)
+            arch=$([[ '${{ matrix.target }}' == aarch64-* ]] && echo aarch64 || echo x64)
+            for f in "$bundle"/macos/*.app.tar.gz; do
+              [[ -f "$f" ]] || continue
+              name="ChinEuro Secure Access_${version}_${arch}.app.tar.gz"
+              cp "$f" "$out/$name"
+              if [[ -f "$f.sig" ]]; then cp "$f.sig" "$out/$name.sig"; fi
+            done
           else
             find "$bundle/nsis" \( -name '*.exe' -o -name '*.sig' \) -exec cp {} "$out/" \;
           fi
@@ -192,6 +199,47 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: 读取版本号
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: src-tauri/tauri.conf.json
+          sparse-checkout-cone-mode: false
+          path: source
+
+      # 客户端从 https://updates.taxspace.eu/chineuro-proxy/latest.json 检查更新，
+      # 清单里的下载地址指向同站点下的 v<版本>/ 目录，发布时需把本 Release 的文件原样上传到该目录
+      - name: 生成自更新清单 latest.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          sigs=(artifacts/*.sig)
+          if (( ${#sigs[@]} == 0 )); then
+            echo '⚠️ 没有 .sig 自更新产物，跳过 latest.json'
+            exit 0
+          fi
+
+          version=$(jq -r .version source/src-tauri/tauri.conf.json)
+          base="https://updates.taxspace.eu/chineuro-proxy/v${version}"
+          platforms='{}'
+          for sig in "${sigs[@]}"; do
+            file=$(basename "${sig%.sig}")
+            case "$file" in
+              *_aarch64.app.tar.gz) key=darwin-aarch64 ;;
+              *_x64.app.tar.gz) key=darwin-x86_64 ;;
+              *_x64-setup.exe) key=windows-x86_64 ;;
+              *_arm64-setup.exe) key=windows-aarch64 ;;
+              *) echo "::warning::未识别的自更新产物 $file"; continue ;;
+            esac
+            url="$base/$(jq -rn --arg f "$file" '$f | @uri')"
+            platforms=$(jq -c --arg k "$key" --arg u "$url" --rawfile s "$sig" \
+              '. + {($k): {url: $u, signature: ($s | rtrimstr("\n"))}}' <<< "$platforms")
+          done
+
+          jq -n --arg v "$version" --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson p "$platforms" \
+            '{version: $v, notes: "", pub_date: $d, platforms: $p}' > artifacts/latest.json
+          cat artifacts/latest.json
 
       - name: 列出待发布文件
         run: ls -lh artifacts

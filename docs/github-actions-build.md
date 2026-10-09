@@ -64,7 +64,7 @@ openssl rand -base64 48 | tr -d '\n'
 
 ### `TAURI_PRIVATE_KEY`
 
-应用自更新的签名私钥。`src-tauri/tauri.conf.json` 里已经配了对应公钥，指向 `https://updates.chineuro.com/chineuro-proxy/...`。
+应用自更新的签名私钥。`src-tauri/tauri.conf.json` 里已经配了对应公钥，指向 `https://updates.taxspace.eu/chineuro-proxy/latest.json`。
 
 **取值位置**：`~/.tauri/chineuro-proxy.key`，已验证与配置中的 pubkey 配对。
 
