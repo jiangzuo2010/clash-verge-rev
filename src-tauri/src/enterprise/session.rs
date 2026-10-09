@@ -356,7 +356,7 @@ mod tests {
     fn logout_url_uses_keycloak_realm() {
         assert_eq!(
             logout_url(&EnterpriseConfig::default()).unwrap(),
-            "https://kc-t.taxspace.cn/realms/staff/protocol/openid-connect/logout"
+            "https://auth.chineuro.cn/realms/staff/protocol/openid-connect/logout"
         );
     }
 

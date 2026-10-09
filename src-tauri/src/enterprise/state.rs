@@ -4,10 +4,16 @@ use crate::{
     utils::{dirs, help},
 };
 use anyhow::{Context as _, Result};
+use clash_verge_logging::{Type, logging};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 const ENTERPRISE_STATE_FILE: &str = "enterprise.yaml";
+const PRODUCTION_API_BASE_URL: &str = "https://api.chineuro.cn/gateway/api";
+const PRODUCTION_KEYCLOAK_BASE_URL: &str = "https://auth.chineuro.cn";
+// Pre-release builds persisted these test endpoints as their defaults.
+const LEGACY_TEST_API_BASE_URL: &str = "https://api-t.taxspace.cn/gateway/api";
+const LEGACY_TEST_KEYCLOAK_BASE_URL: &str = "https://kc-t.taxspace.cn";
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -155,9 +161,9 @@ impl Default for EnterpriseConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            iam_base_url: "https://api-t.taxspace.cn/gateway/api".into(),
-            policy_base_url: "https://api-t.taxspace.cn/gateway/api".into(),
-            keycloak_base_url: "https://kc-t.taxspace.cn".into(),
+            iam_base_url: PRODUCTION_API_BASE_URL.into(),
+            policy_base_url: PRODUCTION_API_BASE_URL.into(),
+            keycloak_base_url: PRODUCTION_KEYCLOAK_BASE_URL.into(),
             keycloak_realm: "staff".into(),
             keycloak_client_id: "usp-enterprise-proxy".into(),
             keycloak_redirect_uri: "http://127.0.0.1:33221/auth/callback".into(),
@@ -202,7 +208,30 @@ impl EnterpriseState {
             Err(_) => return Self::default(),
         };
 
-        help::read_yaml::<Self>(&path).await.unwrap_or_default()
+        let mut state = help::read_yaml::<Self>(&path).await.unwrap_or_default();
+        if state.migrate_legacy_test_endpoints()
+            && let Err(err) = state.save().await
+        {
+            logging!(warn, Type::Config, "保存企业配置迁移失败: {}", err);
+        }
+        state
+    }
+
+    /// Tokens and policies issued by the test environment are not valid in production.
+    fn migrate_legacy_test_endpoints(&mut self) -> bool {
+        let config = &self.config;
+        if config.iam_base_url != LEGACY_TEST_API_BASE_URL
+            || config.policy_base_url != LEGACY_TEST_API_BASE_URL
+            || config.keycloak_base_url != LEGACY_TEST_KEYCLOAK_BASE_URL
+        {
+            return false;
+        }
+        self.config.iam_base_url = PRODUCTION_API_BASE_URL.into();
+        self.config.policy_base_url = PRODUCTION_API_BASE_URL.into();
+        self.config.keycloak_base_url = PRODUCTION_KEYCLOAK_BASE_URL.into();
+        self.clear_session();
+        self.clear_policy();
+        true
     }
 
     pub async fn save(&self) -> Result<()> {
@@ -341,16 +370,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_enterprise_config_points_to_test_environment() {
+    fn default_enterprise_config_points_to_production_environment() {
         let config = EnterpriseConfig::default();
 
         assert!(config.enabled);
-        assert_eq!(config.iam_base_url, "https://api-t.taxspace.cn/gateway/api");
-        assert_eq!(config.policy_base_url, "https://api-t.taxspace.cn/gateway/api");
-        assert_eq!(config.keycloak_base_url, "https://kc-t.taxspace.cn");
+        assert_eq!(config.iam_base_url, "https://api.chineuro.cn/gateway/api");
+        assert_eq!(config.policy_base_url, "https://api.chineuro.cn/gateway/api");
+        assert_eq!(config.keycloak_base_url, "https://auth.chineuro.cn");
         assert_eq!(config.keycloak_realm, "staff");
         assert_eq!(config.keycloak_client_id, "usp-enterprise-proxy");
         assert_eq!(config.app_code, "company-proxy-desktop");
+    }
+
+    #[test]
+    fn legacy_test_endpoints_migrate_to_production_and_drop_session() {
+        let mut state = EnterpriseState::default();
+        state.config.iam_base_url = LEGACY_TEST_API_BASE_URL.into();
+        state.config.policy_base_url = LEGACY_TEST_API_BASE_URL.into();
+        state.config.keycloak_base_url = LEGACY_TEST_KEYCLOAK_BASE_URL.into();
+        state.session.authenticated = true;
+        state.session.access_token = Some("test-token".into());
+
+        assert!(state.migrate_legacy_test_endpoints());
+        assert_eq!(state.config, EnterpriseConfig::default());
+        assert_eq!(state.session, EnterpriseSession::default());
+
+        let mut custom = EnterpriseState::default();
+        custom.config.keycloak_base_url = LEGACY_TEST_KEYCLOAK_BASE_URL.into();
+        assert!(!custom.migrate_legacy_test_endpoints());
     }
 
     #[test]
