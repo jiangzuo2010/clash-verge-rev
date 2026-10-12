@@ -71,6 +71,15 @@
       "syncFailed": "同步失败，请稍后重试或联系管理员",
       "signedOut": "已退出企业登录",
       "signOutFailed": "退出失败，请稍后重试"
+    },
+    "connection": {
+      "greeting": "你好，{{name}}",
+      "connecting": "正在连接",
+      "ready": "已连接",
+      "readyHint": "现在可以访问公司业务系统。",
+      "notReady": "连接未就绪",
+      "notReadyHint": "请点击重试，如仍无法使用请联系 IT。",
+      "retry": "重试"
     }
   },
   "components": {

@@ -66,6 +66,8 @@ const Layout = () => {
   const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
   const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
   const enterpriseSignedOut = enterpriseManaged && !enterpriseAuthenticated
+  const enterpriseStandalone =
+    enterpriseManaged && (!enterpriseAuthenticated || !enterpriseAdvancedAccess)
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
@@ -153,10 +155,11 @@ const Layout = () => {
     )
   }
 
-  if (enterpriseSignedOut) {
+  if (enterpriseStandalone) {
     return (
       <ThemeProvider theme={theme}>
         <NoticeManager position={verge?.notice_position} />
+        {!enterpriseSignedOut && <SysproxyPrivilegeDialog />}
         <Paper
           square
           elevation={0}

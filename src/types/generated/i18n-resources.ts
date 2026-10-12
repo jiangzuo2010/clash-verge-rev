@@ -181,6 +181,15 @@ export interface TranslationResources {
           title: string
           version: string
         }
+        connection: {
+          connecting: string
+          greeting: string
+          notReady: string
+          notReadyHint: string
+          ready: string
+          readyHint: string
+          retry: string
+        }
         login: {
           action: string
           cardTitle: string

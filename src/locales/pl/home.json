@@ -71,6 +71,15 @@
       "syncFailed": "Synchronizacja nie powiodła się. Spróbuj później lub skontaktuj się z administratorem.",
       "signedOut": "Wylogowano",
       "signOutFailed": "Wylogowanie nie powiodło się. Spróbuj później."
+    },
+    "connection": {
+      "greeting": "Dzień dobry, {{name}}",
+      "connecting": "Łączenie",
+      "ready": "Połączono",
+      "readyHint": "Możesz teraz korzystać z firmowych systemów.",
+      "notReady": "Brak połączenia",
+      "notReadyHint": "Kliknij „Ponów”. Jeśli problem się powtarza, skontaktuj się z działem IT.",
+      "retry": "Ponów"
     }
   },
   "components": {

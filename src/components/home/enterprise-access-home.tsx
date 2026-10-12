@@ -5,24 +5,13 @@ import {
   LogoutRounded,
   SyncRounded,
 } from '@mui/icons-material'
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
 import { EnhancedCard } from '@/components/home/enhanced-card'
-import {
-  EnterpriseAllowedResources,
-  EnterpriseStatusLine,
-} from '@/components/home/enterprise-access-details'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { syncEnterprisePolicy } from '@/services/enterprise'
@@ -47,9 +36,8 @@ export const EnterpriseAccessHome = ({
   const { enterprise, clearSession, startLogin, refetchEnterprise } =
     useEnterprise()
   const session = enterprise?.session
-  const policy = enterprise?.policyStatus
   const authenticated = session?.authenticated ?? false
-  const allowedResources = enterprise?.allowedResources ?? []
+  const ready = Boolean(enterprise?.policyStatus)
   const [loggingIn, setLoggingIn] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
@@ -72,7 +60,9 @@ export const EnterpriseAccessHome = ({
       showNotice.error(t('home.enterprise.notices.loginFailed'))
       return
     }
+    setSyncing(true)
     const synced = await syncPolicyAfterLogin(refetchEnterprise, t)
+    setSyncing(false)
     if (synced) {
       showNotice.success(t('home.enterprise.notices.connected'))
     }
@@ -113,60 +103,139 @@ export const EnterpriseAccessHome = ({
     }
   })
 
-  if (!authenticated) {
-    return (
-      <Box
+  return (
+    <Box
+      sx={{
+        minHeight: fullscreen ? '100vh' : 'calc(100vh - 96px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        px: { xs: 2, sm: 4 },
+        py: { xs: 4, sm: 6 },
+        background: (theme) =>
+          theme.palette.mode === 'light'
+            ? 'linear-gradient(135deg, #fff7f5 0%, #f6f8fb 42%, #edf4ff 100%)'
+            : 'linear-gradient(135deg, #191312 0%, #111827 48%, #101820 100%)',
+      }}
+    >
+      <Stack
+        spacing={3}
         sx={{
-          minHeight: fullscreen ? '100vh' : 'calc(100vh - 96px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          px: { xs: 2, sm: 4 },
-          py: { xs: 4, sm: 6 },
-          background: (theme) =>
-            theme.palette.mode === 'light'
-              ? 'linear-gradient(135deg, #fff7f5 0%, #f6f8fb 42%, #edf4ff 100%)'
-              : 'linear-gradient(135deg, #191312 0%, #111827 48%, #101820 100%)',
+          width: '100%',
+          maxWidth: authenticated ? 460 : 980,
         }}
       >
-        <Stack
-          spacing={3}
+        <Box
           sx={{
-            width: '100%',
-            maxWidth: 980,
+            alignSelf: 'flex-end',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1,
+            py: 0.75,
+            borderRadius: 2,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'light'
+                ? 'rgba(255,255,255,0.78)'
+                : 'rgba(17,24,39,0.72)',
+            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+            backdropFilter: 'blur(14px)',
           }}
         >
-          <Box
-            sx={{
-              alignSelf: 'flex-end',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 1,
-              py: 0.75,
-              borderRadius: 2,
-              bgcolor: (theme) =>
-                theme.palette.mode === 'light'
-                  ? 'rgba(255,255,255,0.78)'
-                  : 'rgba(17,24,39,0.72)',
-              boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
-              backdropFilter: 'blur(14px)',
-            }}
-          >
-            <LanguageRounded fontSize="small" color="action" />
-            {loginLanguages.map(({ code, label }) => (
-              <Button
-                key={code}
-                size="small"
-                variant={currentLanguage === code ? 'contained' : 'text'}
-                onClick={() => switchLanguage(code)}
-                sx={{ minWidth: 0, borderRadius: 1.25, px: 1.25 }}
-              >
-                {label}
-              </Button>
-            ))}
-          </Box>
+          <LanguageRounded fontSize="small" color="action" />
+          {loginLanguages.map(({ code, label }) => (
+            <Button
+              key={code}
+              size="small"
+              variant={currentLanguage === code ? 'contained' : 'text'}
+              onClick={() => switchLanguage(code)}
+              sx={{ minWidth: 0, borderRadius: 1.25, px: 1.25 }}
+            >
+              {label}
+            </Button>
+          ))}
+        </Box>
 
+        {authenticated ? (
+          <EnhancedCard
+            title={t('home.enterprise.login.cardTitle')}
+            icon={<CheckCircleRounded />}
+            iconColor={ready ? 'success' : 'warning'}
+          >
+            <Stack spacing={3} sx={{ py: 1, alignItems: 'center' }}>
+              <Box
+                component="img"
+                src={appLogo}
+                alt="ChinEuro Secure Access"
+                sx={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 2,
+                  boxShadow: '0 12px 32px rgba(124, 35, 31, 0.24)',
+                }}
+              />
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                {t('home.enterprise.connection.greeting', {
+                  name: session?.realName || session?.username || '',
+                })}
+              </Typography>
+              <Stack spacing={0.75} sx={{ alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {syncing ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: ready ? 'success.main' : 'warning.main',
+                      }}
+                    />
+                  )}
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {syncing
+                      ? t('home.enterprise.connection.connecting')
+                      : ready
+                        ? t('home.enterprise.connection.ready')
+                        : t('home.enterprise.connection.notReady')}
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: 'center' }}
+                >
+                  {ready || syncing
+                    ? t('home.enterprise.connection.readyHint')
+                    : t('home.enterprise.connection.notReadyHint')}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1.5}>
+                {!ready && (
+                  <Button
+                    variant="contained"
+                    startIcon={<SyncRounded />}
+                    disabled={syncing}
+                    onClick={onSyncPolicy}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    {t('home.enterprise.connection.retry')}
+                  </Button>
+                )}
+                <Button
+                  color="inherit"
+                  variant="outlined"
+                  startIcon={<LogoutRounded />}
+                  onClick={onLogout}
+                  sx={{ borderRadius: 1.5 }}
+                >
+                  {t('home.enterprise.access.signOut')}
+                </Button>
+              </Stack>
+            </Stack>
+          </EnhancedCard>
+        ) : (
           <Box
             sx={{
               display: 'grid',
@@ -250,72 +319,9 @@ export const EnterpriseAccessHome = ({
               </Stack>
             </EnhancedCard>
           </Box>
-        </Stack>
-      </Box>
-    )
-  }
-
-  return (
-    <Stack spacing={1.5}>
-      <EnhancedCard
-        title={t('home.enterprise.access.title')}
-        icon={<CheckCircleRounded />}
-        iconColor="success"
-        action={
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={
-                syncing ? <CircularProgress size={16} /> : <SyncRounded />
-              }
-              disabled={syncing}
-              onClick={onSyncPolicy}
-              sx={{ borderRadius: 1.5 }}
-            >
-              {t('home.enterprise.access.sync')}
-            </Button>
-            <Button
-              size="small"
-              color="inherit"
-              variant="outlined"
-              startIcon={<LogoutRounded />}
-              onClick={onLogout}
-              sx={{ borderRadius: 1.5 }}
-            >
-              {t('home.enterprise.access.signOut')}
-            </Button>
-          </Stack>
-        }
-      >
-        <Stack spacing={1.25}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {session?.username || t('home.enterprise.access.account')}
-            </Typography>
-            <Chip
-              size="small"
-              color="success"
-              label={t('home.enterprise.access.signedIn')}
-            />
-          </Box>
-          <EnterpriseStatusLine
-            label={t('home.enterprise.access.policy')}
-            value={
-              policy
-                ? t('home.enterprise.access.syncedAt', {
-                    time: policy.syncedAt,
-                  })
-                : t('home.enterprise.access.pendingSync')
-            }
-          />
-          <EnterpriseAllowedResources
-            resources={allowedResources}
-            emptyText={t('home.enterprise.resources.emptyAfterSync')}
-          />
-        </Stack>
-      </EnhancedCard>
-    </Stack>
+        )}
+      </Stack>
+    </Box>
   )
 }
 

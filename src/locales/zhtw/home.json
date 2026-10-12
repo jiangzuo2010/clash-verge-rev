@@ -71,6 +71,15 @@
       "syncFailed": "Sync failed. Try again later or contact your administrator.",
       "signedOut": "Signed out",
       "signOutFailed": "Sign-out failed. Try again later."
+    },
+    "connection": {
+      "greeting": "你好，{{name}}",
+      "connecting": "正在連線",
+      "ready": "已連線",
+      "readyHint": "現在可以存取公司業務系統。",
+      "notReady": "連線未就緒",
+      "notReadyHint": "請點擊重試，如仍無法使用請聯絡 IT。",
+      "retry": "重試"
     }
   },
   "components": {

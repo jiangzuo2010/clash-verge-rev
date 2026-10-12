@@ -71,6 +71,15 @@
       "syncFailed": "Sync failed. Try again later or contact your administrator.",
       "signedOut": "Signed out",
       "signOutFailed": "Sign-out failed. Try again later."
+    },
+    "connection": {
+      "greeting": "Hello, {{name}}",
+      "connecting": "Connecting",
+      "ready": "Connected",
+      "readyHint": "You can now access company business systems.",
+      "notReady": "Not connected",
+      "notReadyHint": "Click Retry. If the problem persists, contact IT.",
+      "retry": "Retry"
     }
   },
   "components": {

@@ -355,7 +355,10 @@ const HomePage = () => {
     ]
   }, [enterpriseAdvancedAccess, enterpriseManaged, t, renderCard])
 
-  if (enterpriseManaged && !enterpriseAuthenticated) {
+  if (
+    enterpriseManaged &&
+    (!enterpriseAuthenticated || !enterpriseAdvancedAccess)
+  ) {
     return <EnterpriseAccessHome fullscreen />
   }
 
