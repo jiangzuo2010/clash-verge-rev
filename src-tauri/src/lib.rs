@@ -129,6 +129,15 @@ mod app_init {
 
     pub fn bootstrap_enterprise() {
         AsyncHandler::spawn(|| async {
+            // Startup holds the config transaction while it starts the core; applying a
+            // policy before then makes the core start fail with "already running".
+            while !utils::resolve::is_resolve_done() {
+                if core::handle::Handle::global().is_exiting() {
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+
             loop {
                 if core::handle::Handle::global().is_exiting() {
                     break;
