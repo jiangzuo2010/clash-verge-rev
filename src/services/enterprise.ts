@@ -17,6 +17,7 @@ interface EnterpriseSessionView {
   authenticated: boolean
   userId?: string
   username?: string
+  realName?: string
   tenantId?: string
   tenantCode?: string
   accessTokenExpiresAt?: string

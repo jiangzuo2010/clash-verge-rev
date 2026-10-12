@@ -79,6 +79,8 @@ pub struct EnterpriseSession {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub real_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tenant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tenant_code: Option<String>,
@@ -110,6 +112,8 @@ pub struct EnterpriseSessionView {
     pub user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub real_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tenant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -287,6 +291,7 @@ impl EnterpriseState {
                 authenticated: self.session.authenticated,
                 user_id: self.session.user_id.clone(),
                 username: self.session.username.clone(),
+                real_name: self.session.real_name.clone(),
                 tenant_id: self.session.tenant_id.clone(),
                 tenant_code: self.session.tenant_code.clone(),
                 access_token_expires_at: self.session.access_token_expires_at.clone(),

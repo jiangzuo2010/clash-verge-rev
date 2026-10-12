@@ -71,6 +71,7 @@ pub async fn hydrate_enterprise_user(state: &mut EnterpriseState) -> Result<()> 
 
     state.session.user_id = read_string(&current_user, "id");
     state.session.username = read_string(&current_user, "username");
+    state.session.real_name = read_string(&current_user, "realName");
     state.session.tenant_id = read_string(&current_user, "tenantId");
     state.session.tenant_code = read_string(&current_user, "tenantCode");
     state.session.is_super_admin = current_user
