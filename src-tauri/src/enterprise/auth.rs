@@ -9,17 +9,17 @@ use crate::core::handle::Handle;
 use anyhow::{Context as _, Result, bail};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
-use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use std::net::TcpListener;
+use std::sync::OnceLock;
 use tokio::sync::oneshot;
 use warp::Filter as _;
 
 const AUTH_TTL_MINUTES: i64 = 10;
-static CALLBACK_SHUTDOWN: OnceCell<Mutex<Option<oneshot::Sender<()>>>> = OnceCell::new();
+static CALLBACK_SHUTDOWN: OnceLock<Mutex<Option<oneshot::Sender<()>>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

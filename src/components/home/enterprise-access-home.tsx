@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
@@ -26,8 +26,8 @@ import {
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { syncEnterprisePolicy } from '@/services/enterprise'
-import { subscribeVergeEvents } from '@/services/events'
 import { showNotice } from '@/services/notice-service'
+import { useEnterpriseLoginResult } from '@/store/app-store-context'
 
 interface EnterpriseAccessHomeProps {
   fullscreen?: boolean
@@ -78,19 +78,14 @@ export const EnterpriseAccessHome = ({
     }
   })
 
-  useEffect(
-    () =>
-      subscribeVergeEvents(
-        {
-          'verge://enterprise-login-finished': (success) => {
-            void onLoginFinished(success)
-          },
-        },
-        // A login that finished while this page was unmounted emitted no event here.
-        () => void refetchEnterprise(),
-      ),
-    [onLoginFinished, refetchEnterprise],
-  )
+  const loginResult = useEnterpriseLoginResult()
+  // A sign-in that finished before this page mounted is already reflected in the refetched state.
+  const handledLoginRevisionRef = useRef(loginResult.revision)
+  useEffect(() => {
+    if (loginResult.revision === handledLoginRevisionRef.current) return
+    handledLoginRevisionRef.current = loginResult.revision
+    void onLoginFinished(loginResult.success)
+  }, [loginResult, onLoginFinished])
 
   const onSyncPolicy = useLockFn(async () => {
     setSyncing(true)

@@ -17,6 +17,7 @@ import {
   useCoreDataStatus,
 } from '@/providers/app-data-context'
 import { patchClashMode } from '@/services/cmds'
+import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { setCacheData } from '@/services/query-client'
 import type { TranslationKey } from '@/types/generated/i18n-keys'
@@ -94,7 +95,10 @@ export const ClashModeCard = () => {
 
     setOptimisticMode(mode)
     try {
-      await patchClashMode(mode)
+      await mutate(() => patchClashMode(mode), {
+        id: 'patch-clash-mode',
+        errorNotice: false,
+      })
     } catch (error) {
       setOptimisticMode(null)
       showNotice.error(error)

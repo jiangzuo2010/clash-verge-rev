@@ -51,8 +51,8 @@
       },
       "notices": {
         "forceRefreshCompleted": "Force refresh completed",
-        "emergencyRefreshFailed": "Emergency refresh failed: {{message}}",
-        "discardedKeys": "Extensions wrote {{keys}}, which Settings manages, so those values were discarded"
+        "discardedKeys": "Extensions wrote {{keys}}, which Settings manages, so those values were discarded",
+        "emergencyRefreshFailed": "Emergency refresh failed: {{message}}"
       },
       "tooltips": {
         "forceRefreshStaleData": "Profile data is unavailable; click to force a refresh"

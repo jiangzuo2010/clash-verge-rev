@@ -110,11 +110,11 @@
         "settings": "Settings"
       },
       "badges": {
+        "notRunning": "Core Not Running",
         "adminMode": "Administrator Mode",
         "serviceMode": "Service Mode",
         "sidecarMode": "User Mode",
-        "adminServiceMode": "Admin + Service Mode",
-        "notRunning": "Core Not Running"
+        "adminServiceMode": "Admin + Service Mode"
       }
     },
     "ipInfo": {

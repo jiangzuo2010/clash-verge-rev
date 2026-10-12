@@ -92,7 +92,7 @@ jobs:
       - name: 安装 Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.98.1'
+          toolchain: '1.99.0'
           targets: ${{ matrix.target }}
 
       # rust-toolchain.toml 固定的版本才是实际编译用的工具链，target 必须装在它上面
@@ -109,7 +109,7 @@ jobs:
       - name: 安装 Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.19.0'
+          node-version: '24.21.0'
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v6

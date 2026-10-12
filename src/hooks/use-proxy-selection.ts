@@ -12,6 +12,7 @@ import {
 } from '@/hooks/use-record-selection'
 import { useVerge } from '@/hooks/use-verge'
 import { syncTrayProxySelection } from '@/services/cmds'
+import { mutate } from '@/services/mutate'
 import { debugLog } from '@/utils/debug'
 
 // 缓存连接清理
@@ -64,7 +65,10 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
 
   // 切换节点
   const syncTraySelection = useCallback(() => {
-    syncTrayProxySelection().catch((error) => {
+    mutate(() => syncTrayProxySelection(), {
+      id: 'sync-tray-selection',
+      errorNotice: false,
+    }).catch((error) => {
       console.error('[ProxySelection] 托盘状态同步失败:', error)
     })
   }, [])
@@ -80,11 +84,14 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
       }
 
       try {
-        if (isFixedProxy) {
-          await unfixedProxy(groupName)
-        } else {
-          await selectNodeForGroup(groupName, proxyName)
-        }
+        const result = await mutate(
+          () =>
+            isFixedProxy
+              ? unfixedProxy(groupName)
+              : selectNodeForGroup(groupName, proxyName),
+          { id: `select-proxy-node:${groupName}`, errorNotice: false },
+        )
+        if (!result.ok) return
         onSuccess?.()
         syncTraySelection()
         if (isFixedProxy) {
