@@ -5,6 +5,7 @@ use super::{
     state::EnterpriseConfig,
     sync::now_rfc3339,
 };
+use crate::core::handle::Handle;
 use anyhow::{Context as _, Result, bail};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
@@ -250,6 +251,7 @@ async fn handle_callback_request(
     };
 
     shutdown_enterprise_login_callback();
+    Handle::notify_enterprise_login_finished(result.is_ok());
 
     match result {
         Ok(()) => Ok(callback_response(

@@ -80,6 +80,11 @@ impl Handle {
         Self::send_event(FrontendEvent::ProfileUpdateCompleted { uid });
     }
 
+    /// The browser callback finishes outside any frontend call, so the page cannot learn the result otherwise.
+    pub fn notify_enterprise_login_finished(success: bool) {
+        Self::send_event(FrontendEvent::EnterpriseLoginFinished { success });
+    }
+
     pub fn notice_message<S: AsRef<str>, M: Into<String>>(status: S, msg: M) {
         let status_str = status.as_ref();
         let msg_str = msg.into();

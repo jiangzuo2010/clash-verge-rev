@@ -13,6 +13,8 @@ interface VergeEvents {
   'verge://timer-updated': string
   'verge://run-state-changed': RunState
   'verge://pending-failures-changed': null
+  /** Whether the browser sign-in callback completed the enterprise login. */
+  'verge://enterprise-login-finished': boolean
   'profile-changed': string
   'profile-update-started': { uid?: string }
   'profile-update-completed': { uid?: string }

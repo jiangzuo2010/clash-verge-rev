@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
@@ -26,6 +26,7 @@ import {
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { syncEnterprisePolicy } from '@/services/enterprise'
+import { subscribeVergeEvents } from '@/services/events'
 import { showNotice } from '@/services/notice-service'
 
 interface EnterpriseAccessHomeProps {
@@ -53,30 +54,43 @@ export const EnterpriseAccessHome = ({
   const [syncing, setSyncing] = useState(false)
 
   const onStartLogin = useLockFn(async () => {
-    setLoggingIn(true)
     try {
       await startLogin(true)
-      const loggedIn = await pollEnterpriseLogin(refetchEnterprise)
-      if (loggedIn) {
-        const synced = await syncPolicyAfterLogin(refetchEnterprise, t)
-        if (synced) {
-          showNotice.success(t('home.enterprise.notices.connected'))
-        }
-        return
-      }
+      setLoggingIn(true)
       showNotice.info(t('home.enterprise.notices.completeInBrowser'))
     } catch (err) {
-      const result = await refetchEnterprise()
-      if (result.data?.session.authenticated) {
-        showNotice.error(t('home.enterprise.notices.syncFailed'))
-      } else {
-        showNotice.error(t('home.enterprise.notices.loginFailed'))
-      }
-      console.error('[enterprise-login] failed:', err)
-    } finally {
       setLoggingIn(false)
+      showNotice.error(t('home.enterprise.notices.loginFailed'))
+      console.error('[enterprise-login] failed:', err)
     }
   })
+
+  const onLoginFinished = useLockFn(async (success: boolean) => {
+    setLoggingIn(false)
+    if (!success) {
+      await refetchEnterprise()
+      showNotice.error(t('home.enterprise.notices.loginFailed'))
+      return
+    }
+    const synced = await syncPolicyAfterLogin(refetchEnterprise, t)
+    if (synced) {
+      showNotice.success(t('home.enterprise.notices.connected'))
+    }
+  })
+
+  useEffect(
+    () =>
+      subscribeVergeEvents(
+        {
+          'verge://enterprise-login-finished': (success) => {
+            void onLoginFinished(success)
+          },
+        },
+        // A login that finished while this page was unmounted emitted no event here.
+        () => void refetchEnterprise(),
+      ),
+    [onLoginFinished, refetchEnterprise],
+  )
 
   const onSyncPolicy = useLockFn(async () => {
     setSyncing(true)
@@ -224,7 +238,6 @@ export const EnterpriseAccessHome = ({
                       <LoginRounded />
                     )
                   }
-                  disabled={loggingIn}
                   onClick={onStartLogin}
                   sx={{
                     alignSelf: 'flex-start',
@@ -311,19 +324,6 @@ export const EnterpriseAccessHome = ({
   )
 }
 
-async function pollEnterpriseLogin(
-  refetchEnterprise: ReturnType<typeof useEnterprise>['refetchEnterprise'],
-) {
-  for (let i = 0; i < 30; i += 1) {
-    const result = await refetchEnterprise()
-    if (result.data?.session.authenticated) {
-      return true
-    }
-    await sleep(1000)
-  }
-  return false
-}
-
 async function syncPolicyAfterLogin(
   refetchEnterprise: ReturnType<typeof useEnterprise>['refetchEnterprise'],
   t: (key: string) => string,
@@ -338,8 +338,4 @@ async function syncPolicyAfterLogin(
     console.error('[enterprise-login-sync] failed:', err)
     return false
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
