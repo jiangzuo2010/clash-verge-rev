@@ -18,7 +18,6 @@ import {
   type EnterpriseConfigPatch,
   syncEnterprisePolicy,
 } from '@/services/enterprise'
-import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { showNotice } from '@/services/notice-service'
 
 interface Props {
@@ -83,8 +82,7 @@ const SettingEnterprise = ({ onError }: Props) => {
   const enabled = config?.enabled ?? false
   const authenticated = session?.authenticated ?? false
   const showLocalMock = import.meta.env.DEV
-  const showAdvancedControls =
-    import.meta.env.DEV || hasEnterpriseAdvancedAccess(enterprise)
+  const showAdvancedControls = import.meta.env.DEV
 
   const onToggle = useLockFn(async (next: boolean) => {
     try {

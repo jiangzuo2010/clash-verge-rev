@@ -31,14 +31,12 @@ import { CurrentProxyCard } from '@/components/home/current-proxy-card'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
 import { EnterpriseAccessHome } from '@/components/home/enterprise-access-home'
-import { EnterpriseStatusCard } from '@/components/home/enterprise-status-card'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
 import { entry_lightweight_mode } from '@/services/cmds'
-import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { openExternalUrl } from '@/utils/open-external-url'
@@ -239,9 +237,6 @@ const HomePage = () => {
   const { verge } = useVerge()
   const { enterprise } = useEnterprise()
   const { current, mutateProfiles } = useProfiles()
-  const enterpriseManaged = enterprise?.config.enabled ?? false
-  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
-  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
 
   // 设置弹窗的状态
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -275,48 +270,21 @@ const HomePage = () => {
     [homeCards],
   )
 
-  const criticalCards = useMemo(() => {
-    if (enterpriseManaged && !enterpriseAuthenticated) {
-      return [
-        <Grid size={12} key="enterprise-login">
-          <EnterpriseAccessHome fullscreen />
-        </Grid>,
-      ]
-    }
-
-    if (enterpriseManaged && !enterpriseAdvancedAccess) {
-      return [renderCard('profile', <EnterpriseAccessHome />, 12)]
-    }
-
-    return [
-      enterpriseManaged
-        ? renderCard('profile', <EnterpriseStatusCard />)
-        : renderCard(
-            'profile',
-            <HomeProfileCard
-              current={current}
-              onProfileUpdated={mutateProfiles}
-            />,
-          ),
+  const criticalCards = useMemo(
+    () => [
+      renderCard(
+        'profile',
+        <HomeProfileCard current={current} onProfileUpdated={mutateProfiles} />,
+      ),
       renderCard('proxy', <CurrentProxyCard />),
-      enterpriseManaged ? null : renderCard('network', <NetworkSettingsCard />),
+      renderCard('network', <NetworkSettingsCard />),
       renderCard('mode', <ClashModeEnhancedCard />),
-    ]
-  }, [
-    current,
-    enterpriseAdvancedAccess,
-    enterpriseAuthenticated,
-    enterpriseManaged,
-    mutateProfiles,
-    renderCard,
-  ])
+    ],
+    [current, mutateProfiles, renderCard],
+  )
 
-  const nonCriticalCards = useMemo(() => {
-    if (enterpriseManaged && !enterpriseAdvancedAccess) {
-      return []
-    }
-
-    return [
+  const nonCriticalCards = useMemo(
+    () => [
       renderCard(
         'traffic',
         <EnhancedCard
@@ -352,13 +320,12 @@ const HomePage = () => {
           <LazySystemInfoCard />
         </Suspense>,
       ),
-    ]
-  }, [enterpriseAdvancedAccess, enterpriseManaged, t, renderCard])
+    ],
+    [t, renderCard],
+  )
 
-  if (
-    enterpriseManaged &&
-    (!enterpriseAuthenticated || !enterpriseAdvancedAccess)
-  ) {
+  // Managed clients show only the access page, never proxy details.
+  if (enterprise?.config.enabled) {
     return <EnterpriseAccessHome fullscreen />
   }
 
@@ -367,34 +334,32 @@ const HomePage = () => {
       title={t('home.page.title')}
       contentStyle={{ padding: 2 }}
       header={
-        enterpriseManaged && !enterpriseAdvancedAccess ? null : (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title={t('home.page.tooltips.lightweightMode')} arrow>
-              <IconButton
-                onClick={async () =>
-                  await mutate(() => entry_lightweight_mode(), {
-                    id: 'entry-lightweight-mode',
-                    errorNotice: false,
-                  })
-                }
-                size="small"
-                color="inherit"
-              >
-                <HistoryEduOutlined />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={t('home.page.tooltips.manual')} arrow>
-              <IconButton onClick={toGithubDoc} size="small" color="inherit">
-                <HelpOutlineRounded />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={t('home.page.tooltips.settings')} arrow>
-              <IconButton onClick={openSettings} size="small" color="inherit">
-                <SettingsOutlined />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Tooltip title={t('home.page.tooltips.lightweightMode')} arrow>
+            <IconButton
+              onClick={async () =>
+                await mutate(() => entry_lightweight_mode(), {
+                  id: 'entry-lightweight-mode',
+                  errorNotice: false,
+                })
+              }
+              size="small"
+              color="inherit"
+            >
+              <HistoryEduOutlined />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('home.page.tooltips.manual')} arrow>
+            <IconButton onClick={toGithubDoc} size="small" color="inherit">
+              <HelpOutlineRounded />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('home.page.tooltips.settings')} arrow>
+            <IconButton onClick={openSettings} size="small" color="inherit">
+              <SettingsOutlined />
+            </IconButton>
+          </Tooltip>
+        </Box>
       }
     >
       <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>

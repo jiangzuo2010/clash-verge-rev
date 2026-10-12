@@ -1,14 +1,12 @@
 import { DragDropProvider, KeyboardSensor, PointerSensor } from '@dnd-kit/react'
 import { Box, List, Menu, MenuItem } from '@mui/material'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
-import { useEnterprise } from '@/hooks/use-enterprise'
 import { useVerge } from '@/hooks/use-verge'
 import { useNavMenuOrder } from '@/pages/_layout/hooks'
 import { navItems } from '@/pages/_navigation'
-import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 
 import { SortableItem } from '../base'
 
@@ -25,24 +23,10 @@ interface LayoutSidebarProps {
 
 const SENSORS = [PointerSensor, KeyboardSensor]
 
-const ENTERPRISE_BASE_PATHS = new Set(['/'])
-const ENTERPRISE_ADVANCED_PATHS = new Set([
-  '/proxies',
-  '/connections',
-  '/rules',
-  '/logs',
-  '/settings',
-])
-const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/'])
-
 export const LayoutSidebar = (props: LayoutSidebarProps) => {
   const { isDark, isCollapsed } = props
   const { t } = useTranslation()
   const { verge, mutateVerge, patchVerge } = useVerge()
-  const { enterprise } = useEnterprise()
-  const enterpriseManaged = enterprise?.config.enabled ?? false
-  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
-  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
   const [menuUnlocked, setMenuUnlocked] = useState(false)
   const [menuContextPosition, setMenuContextPosition] =
     useState<MenuContextPosition | null>(null)
@@ -75,29 +59,6 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     onOptimisticUpdate: handleMenuOrderOptimisticUpdate,
     onPersist: handleMenuOrderPersist,
   })
-
-  const visibleMenuOrder = useMemo(() => {
-    if (!enterpriseManaged) {
-      return menuOrder
-    }
-    if (!enterpriseAuthenticated) {
-      return menuOrder.filter((path) => ENTERPRISE_SIGNED_OUT_PATHS.has(path))
-    }
-    return menuOrder.filter((path) => {
-      if (ENTERPRISE_BASE_PATHS.has(path)) {
-        return true
-      }
-      if (ENTERPRISE_ADVANCED_PATHS.has(path)) {
-        return enterpriseAdvancedAccess
-      }
-      return false
-    })
-  }, [
-    enterpriseAdvancedAccess,
-    enterpriseAuthenticated,
-    enterpriseManaged,
-    menuOrder,
-  ])
 
   const handleMenuContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
@@ -133,7 +94,7 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
   }, [isCollapsed, patchVerge])
 
   // Navigation menu items
-  const navMenuItems = visibleMenuOrder.map((path, index) => {
+  const navMenuItems = menuOrder.map((path, index) => {
     const item = navItemMap.get(path)
     if (!item) return null
 

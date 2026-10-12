@@ -2,7 +2,6 @@ import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { useTranslation } from 'react-i18next'
-import { Navigate } from 'react-router'
 
 import { BasePage } from '@/components/base'
 import SettingClash from '@/components/setting/setting-clash'
@@ -10,8 +9,6 @@ import SettingEnterprise from '@/components/setting/setting-enterprise'
 import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
-import { useEnterprise } from '@/hooks/use-enterprise'
-import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
 import { openExternalUrl } from '@/utils/open-external-url'
@@ -41,22 +38,6 @@ const SettingPage = () => {
 
   const mode = useThemeMode()
   const isDark = mode === 'light' ? false : true
-  const { enterprise } = useEnterprise()
-  const enterpriseManaged = enterprise?.config.enabled ?? false
-  const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
-  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
-
-  if (
-    enterpriseManaged &&
-    enterpriseAuthenticated &&
-    !enterpriseAdvancedAccess
-  ) {
-    return <Navigate to="/" replace />
-  }
-
-  if (enterpriseManaged && !enterpriseAuthenticated) {
-    return <Navigate to="/" replace />
-  }
 
   return (
     <BasePage
@@ -114,16 +95,14 @@ const SettingPage = () => {
           >
             <SettingEnterprise onError={onError} />
           </Box>
-          {!enterpriseManaged && (
-            <Box
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isDark ? '#282a36' : '#ffffff',
-              }}
-            >
-              <SettingClash onError={onError} />
-            </Box>
-          )}
+          <Box
+            sx={{
+              borderRadius: 2,
+              backgroundColor: isDark ? '#282a36' : '#ffffff',
+            }}
+          >
+            <SettingClash onError={onError} />
+          </Box>
         </Grid>
         <Grid size={6}>
           <Box
@@ -135,16 +114,14 @@ const SettingPage = () => {
           >
             <SettingVergeBasic onError={onError} />
           </Box>
-          {!enterpriseManaged && (
-            <Box
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isDark ? '#282a36' : '#ffffff',
-              }}
-            >
-              <SettingVergeAdvanced onError={onError} />
-            </Box>
-          )}
+          <Box
+            sx={{
+              borderRadius: 2,
+              backgroundColor: isDark ? '#282a36' : '#ffffff',
+            }}
+          >
+            <SettingVergeAdvanced onError={onError} />
+          </Box>
         </Grid>
       </Grid>
     </BasePage>

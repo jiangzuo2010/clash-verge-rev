@@ -3,7 +3,7 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Outlet, useLocation, useNavigate } from 'react-router'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 
 import { BaseErrorBoundary } from '@/components/base'
 import { LayoutSidebar } from '@/components/layout/layout-sidebar'
@@ -19,7 +19,6 @@ import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowDecorations } from '@/hooks/use-window'
 import { useEventBus } from '@/services/bus'
-import { hasEnterpriseAdvancedAccess } from '@/services/enterprise-access'
 import { handleNoticeMessage } from '@/services/notice-handlers'
 import { useThemeMode } from '@/services/states'
 import getSystem from '@/utils/get-system'
@@ -39,16 +38,6 @@ const OS = getSystem()
 
 const LogsPage = lazy(() => import('./logs'))
 
-const ENTERPRISE_ALWAYS_RESTRICTED_PATHS = new Set(['/profile', '/unlock'])
-const ENTERPRISE_ADVANCED_PATHS = new Set([
-  '/proxies',
-  '/connections',
-  '/rules',
-  '/logs',
-  '/settings',
-])
-const ENTERPRISE_SIGNED_OUT_PATHS = new Set(['/'])
-
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
@@ -64,10 +53,7 @@ const Layout = () => {
   const isLogsPage = pathname === '/logs'
   const enterpriseManaged = enterprise?.config.enabled ?? false
   const enterpriseAuthenticated = enterprise?.session.authenticated ?? false
-  const enterpriseAdvancedAccess = hasEnterpriseAdvancedAccess(enterprise)
   const enterpriseSignedOut = enterpriseManaged && !enterpriseAuthenticated
-  const enterpriseStandalone =
-    enterpriseManaged && (!enterpriseAuthenticated || !enterpriseAdvancedAccess)
   const logsPageMountedRef = useRef(false)
   if (isLogsPage) logsPageMountedRef.current = true
   const themeReady = useMemo(() => Boolean(theme), [theme])
@@ -106,32 +92,6 @@ const Layout = () => {
   usePendingFailures()
 
   useEffect(() => {
-    if (
-      enterpriseManaged &&
-      !enterpriseAuthenticated &&
-      !ENTERPRISE_SIGNED_OUT_PATHS.has(pathname)
-    ) {
-      navigate('/', { replace: true })
-      return
-    }
-
-    if (
-      enterpriseManaged &&
-      enterpriseAuthenticated &&
-      (ENTERPRISE_ALWAYS_RESTRICTED_PATHS.has(pathname) ||
-        (ENTERPRISE_ADVANCED_PATHS.has(pathname) && !enterpriseAdvancedAccess))
-    ) {
-      navigate('/', { replace: true })
-    }
-  }, [
-    enterpriseAdvancedAccess,
-    enterpriseAuthenticated,
-    enterpriseManaged,
-    navigate,
-    pathname,
-  ])
-
-  useEffect(() => {
     if (language) {
       dayjs.locale(language === 'zh' ? 'zh-cn' : language)
       switchLanguage(language)
@@ -155,7 +115,7 @@ const Layout = () => {
     )
   }
 
-  if (enterpriseStandalone) {
+  if (enterpriseManaged) {
     return (
       <ThemeProvider theme={theme}>
         <NoticeManager position={verge?.notice_position} />
@@ -176,7 +136,8 @@ const Layout = () => {
         >
           {customTitlebar}
           <BaseErrorBoundary>
-            <Outlet />
+            {/* Managed clients only ever show the access page; no proxy page is reachable. */}
+            {pathname === '/' ? <Outlet /> : <Navigate to="/" replace />}
           </BaseErrorBoundary>
         </Paper>
       </ThemeProvider>
