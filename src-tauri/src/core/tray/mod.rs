@@ -445,16 +445,20 @@ impl Tray {
             |(main, rest)| format!("{main}+{}", rest.split('.').next().unwrap_or("")),
         );
 
-        let tooltip = format!(
-            "ChinEuro Secure Access {}\n{}: {}\n{}: {}\n{}: {}",
-            reassembled_version,
-            sys_proxy_text,
-            switch_str(system_proxy),
-            tun_text,
-            switch_str(tun_mode),
-            profile_text,
-            current_profile_name
-        );
+        let tooltip = if EnterpriseState::load().await.config.enabled {
+            format!("ChinEuro Secure Access {reassembled_version}")
+        } else {
+            format!(
+                "ChinEuro Secure Access {}\n{}: {}\n{}: {}\n{}: {}",
+                reassembled_version,
+                sys_proxy_text,
+                switch_str(system_proxy),
+                tun_text,
+                switch_str(tun_mode),
+                profile_text,
+                current_profile_name
+            )
+        };
 
         let Some(tray) = app_handle.tray_by_id(TRAY_ID) else {
             logging!(warn, Type::Tray, "Failed to update tray tooltip: tray not found");
@@ -1034,6 +1038,14 @@ async fn create_tray_menu(
     let quit = &MenuItem::with_id(app_handle, MenuIds::EXIT, &texts.exit, true, quit_accelerator)?;
 
     let separator = &PredefinedMenuItem::separator(app_handle)?;
+
+    // Managed clients must not reveal proxy controls, even disabled ones.
+    if options.enterprise_managed {
+        let menu = tauri::menu::MenuBuilder::new(app_handle)
+            .items(&[open_window as &dyn IsMenuItem<Wry>, separator, restart_app, quit])
+            .build()?;
+        return Ok((menu, latency_items));
+    }
 
     let mut menu_items: Vec<&dyn IsMenuItem<Wry>> = vec![open_window, separator];
 
