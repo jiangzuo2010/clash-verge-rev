@@ -280,7 +280,14 @@ impl CoreManager {
     pub async fn init(&self) -> Result<bool> {
         const MAX_PORT_FALLBACK_RETRIES: usize = 3;
 
-        crate::enterprise::ensure_enterprise_runtime_ready_for_core_start().await?;
+        // A managed client without a session or policy stays stopped until sign-in;
+        // that is the expected state, not a startup failure to report.
+        if crate::enterprise::ensure_enterprise_runtime_ready_for_core_start()
+            .await
+            .is_err()
+        {
+            return Ok(false);
+        }
 
         if let Some(reason) = crate::config::Config::startup_core_block_reason() {
             anyhow::bail!("core startup blocked after mixed proxy port fallback failure: {reason}");
