@@ -252,6 +252,8 @@ async fn handle_callback_request(
 
     shutdown_enterprise_login_callback();
     Handle::notify_enterprise_login_finished(result.is_ok());
+    // The browser keeps focus after the redirect; bring the user back to the app.
+    crate::utils::window_manager::WindowManager::show_main_window().await;
 
     match result {
         Ok(()) => Ok(callback_response(

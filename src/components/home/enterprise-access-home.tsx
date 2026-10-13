@@ -26,6 +26,7 @@ import appLogo from '@/assets/image/app_logo.png'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
+import { useVerge } from '@/hooks/use-verge'
 import { syncEnterprisePolicy } from '@/services/enterprise'
 import { showNotice } from '@/services/notice-service'
 import { useEnterpriseLoginResult } from '@/store/app-store-context'
@@ -58,7 +59,8 @@ export const EnterpriseAccessHome = ({
   fullscreen = false,
 }: EnterpriseAccessHomeProps) => {
   const { t } = useTranslation()
-  const { currentLanguage, switchLanguage } = useI18n()
+  const { currentLanguage } = useI18n()
+  const { patchVerge } = useVerge()
   const { enterprise, clearSession, startLogin, refetchEnterprise } =
     useEnterprise()
   const session = enterprise?.session
@@ -148,7 +150,7 @@ export const EnterpriseAccessHome = ({
           key={code}
           size="small"
           color="inherit"
-          onClick={() => switchLanguage(code)}
+          onClick={() => void patchVerge({ language: code })}
           sx={{
             minWidth: 0,
             px: 1,
