@@ -28,14 +28,21 @@
   },
   "enterprise": {
     "login": {
-      "headline": "ChinEuro Secure Access",
-      "description": "安全连接公司允许访问的业务资源。登录后，应用会自动同步访问策略并保持本机连接配置最新。",
       "cardTitle": "ChinEuro Secure Access",
-      "title": "企业登录",
+      "title": "欢迎登录",
       "subtitle": "使用公司账号继续访问。",
-      "action": "企业登录",
-      "loggingIn": "等待登录",
-      "securityHint": "登录将在浏览器中完成，应用不会保存您的公司密码。"
+      "action": "使用公司账号登录",
+      "loggingIn": "正在等待浏览器登录…",
+      "securityHint": "登录将在浏览器中完成，应用不会保存您的公司密码。",
+      "tagline": "企业级安全访问平台",
+      "waitingHint": "已在浏览器中打开登录页，完成后此页面会自动更新。",
+      "reopen": "重新打开登录页",
+      "cancel": "取消",
+      "features": {
+        "identity": "统一身份认证",
+        "encryption": "全程加密传输",
+        "policy": "访问策略集中管控"
+      }
     },
     "access": {
       "title": "企业访问",
@@ -65,7 +72,6 @@
     },
     "notices": {
       "connected": "已连接到企业网络",
-      "completeInBrowser": "请在浏览器中完成企业登录",
       "loginFailed": "登录失败，请重试或联系管理员",
       "synced": "连接配置已同步",
       "syncFailed": "同步失败，请稍后重试或联系管理员",

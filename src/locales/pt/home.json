@@ -28,14 +28,21 @@
   },
   "enterprise": {
     "login": {
-      "headline": "ChinEuro Secure Access",
-      "description": "Securely connect to the business resources your company allows. After sign-in, the app syncs access policies and keeps local connection settings up to date.",
       "cardTitle": "ChinEuro Secure Access",
-      "title": "Enterprise sign-in",
+      "title": "Welcome",
       "subtitle": "Continue with your company account.",
-      "action": "Sign in",
-      "loggingIn": "Waiting for sign-in",
-      "securityHint": "Sign-in opens in your browser. The app never stores your company password."
+      "action": "Sign in with company account",
+      "loggingIn": "Waiting for browser sign-in…",
+      "securityHint": "Sign-in opens in your browser. The app never stores your company password.",
+      "tagline": "Enterprise secure access",
+      "waitingHint": "The sign-in page is open in your browser. This screen updates automatically once you finish.",
+      "reopen": "Reopen sign-in page",
+      "cancel": "Cancel",
+      "features": {
+        "identity": "Single sign-on with your company identity",
+        "encryption": "Encrypted end to end",
+        "policy": "Centrally managed access policies"
+      }
     },
     "access": {
       "title": "Enterprise access",
@@ -65,7 +72,6 @@
     },
     "notices": {
       "connected": "Connected to the enterprise network",
-      "completeInBrowser": "Complete enterprise sign-in in your browser",
       "loginFailed": "Sign-in failed. Try again or contact your administrator.",
       "synced": "Connection config synced",
       "syncFailed": "Sync failed. Try again later or contact your administrator.",

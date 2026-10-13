@@ -192,16 +192,22 @@ export interface TranslationResources {
         }
         login: {
           action: string
+          cancel: string
           cardTitle: string
-          description: string
-          headline: string
+          features: {
+            encryption: string
+            identity: string
+            policy: string
+          }
           loggingIn: string
+          reopen: string
           securityHint: string
           subtitle: string
+          tagline: string
           title: string
+          waitingHint: string
         }
         notices: {
-          completeInBrowser: string
           connected: string
           loginFailed: string
           signedOut: string

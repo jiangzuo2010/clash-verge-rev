@@ -28,14 +28,21 @@
   },
   "enterprise": {
     "login": {
-      "headline": "ChinEuro Secure Access",
-      "description": "Bezpiecznie łącz się z zasobami firmowymi, do których masz dostęp. Po zalogowaniu aplikacja automatycznie synchronizuje zasady dostępu i lokalną konfigurację połączenia.",
       "cardTitle": "ChinEuro Secure Access",
-      "title": "Logowanie firmowe",
+      "title": "Witamy",
       "subtitle": "Kontynuuj przy użyciu konta firmowego.",
-      "action": "Zaloguj się",
-      "loggingIn": "Oczekiwanie na logowanie",
-      "securityHint": "Logowanie odbywa się w przeglądarce. Aplikacja nigdy nie zapisuje hasła firmowego."
+      "action": "Zaloguj się kontem firmowym",
+      "loggingIn": "Oczekiwanie na logowanie w przeglądarce…",
+      "securityHint": "Logowanie odbywa się w przeglądarce. Aplikacja nigdy nie zapisuje hasła firmowego.",
+      "tagline": "Bezpieczny dostęp firmowy",
+      "waitingHint": "Strona logowania jest otwarta w przeglądarce. Po zalogowaniu ten ekran zaktualizuje się automatycznie.",
+      "reopen": "Otwórz ponownie stronę logowania",
+      "cancel": "Anuluj",
+      "features": {
+        "identity": "Jednolite uwierzytelnianie firmowe",
+        "encryption": "Szyfrowane połączenia",
+        "policy": "Centralnie zarządzane zasady dostępu"
+      }
     },
     "access": {
       "title": "Dostęp firmowy",
@@ -65,7 +72,6 @@
     },
     "notices": {
       "connected": "Połączono z siecią firmową",
-      "completeInBrowser": "Dokończ logowanie firmowe w przeglądarce",
       "loginFailed": "Logowanie nie powiodło się. Spróbuj ponownie lub skontaktuj się z administratorem.",
       "synced": "Konfiguracja połączenia została zsynchronizowana",
       "syncFailed": "Synchronizacja nie powiodła się. Spróbuj później lub skontaktuj się z administratorem.",
