@@ -2,6 +2,7 @@ use super::{
     EnterprisePolicy, EnterpriseState,
     http::{is_loopback_enterprise_url, secure_enterprise_client, validate_enterprise_https_url},
     refresh_enterprise_session_if_needed,
+    session::force_refresh_enterprise_session,
 };
 use aes_gcm::{
     Aes256Gcm, Nonce,
@@ -37,9 +38,28 @@ fn is_policy_rejection(err: &anyhow::Error) -> bool {
     err.downcast_ref::<EnterprisePolicyRejected>().is_some()
 }
 
+/// The policy service no longer accepts the access token (session ended or revoked server-side).
+#[derive(Debug)]
+struct EnterpriseTokenRejected;
+
+impl std::fmt::Display for EnterpriseTokenRejected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enterprise access token rejected by the policy service")
+    }
+}
+
+impl std::error::Error for EnterpriseTokenRejected {}
+
+fn is_token_rejection(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<EnterpriseTokenRejected>().is_some()
+}
+
 /// A bare 403 (e.g. from a WAF/nginx in front of the service) must not clear every client's
 /// cached policy; only the server's explicit `403001` body counts as a rejection.
 fn policy_status_error(status: reqwest::StatusCode, body: Option<&Value>) -> anyhow::Error {
+    if status == reqwest::StatusCode::UNAUTHORIZED {
+        return EnterpriseTokenRejected.into();
+    }
     if status == reqwest::StatusCode::FORBIDDEN {
         let code = body
             .and_then(Value::as_object)
@@ -60,9 +80,12 @@ fn policy_status_error(status: reqwest::StatusCode, body: Option<&Value>) -> any
 pub async fn sync_enterprise_policy_from_server() -> Result<EnterpriseState> {
     let result = sync_policy_once().await;
     if let Err(err) = &result
-        && is_policy_rejection(err)
+        && (is_policy_rejection(err) || is_token_rejection(err))
     {
         let mut state = EnterpriseState::load().await;
+        if is_token_rejection(err) {
+            state.clear_session();
+        }
         state.clear_policy();
         if let Err(save_err) = state.save().await {
             logging!(warn, Type::Core, "保存已拒绝的企业策略状态失败: {}", save_err);
@@ -82,7 +105,19 @@ async fn sync_policy_once() -> Result<EnterpriseState> {
         .clone()
         .ok_or_else(|| anyhow!("enterprise session is missing access token"))?;
 
-    let policy = fetch_policy(&state.config.policy_base_url, &access_token, &state.config.app_code).await?;
+    let policy = match fetch_policy(&state.config.policy_base_url, &access_token, &state.config.app_code).await {
+        Err(err) if is_token_rejection(&err) => {
+            // A failed refresh signs the user out; a fresh token that is still rejected does below.
+            state = force_refresh_enterprise_session().await?;
+            let access_token = state
+                .session
+                .access_token
+                .clone()
+                .ok_or_else(|| anyhow!("enterprise session is missing access token"))?;
+            fetch_policy(&state.config.policy_base_url, &access_token, &state.config.app_code).await?
+        }
+        result => result?,
+    };
     state.set_cached_policy(policy)?;
     state.save().await?;
     Ok(state)
@@ -395,6 +430,14 @@ mod tests {
     fn forbidden_status_without_body_is_not_a_policy_rejection() {
         let err = policy_status_error(reqwest::StatusCode::FORBIDDEN, None);
 
+        assert!(!is_policy_rejection(&err));
+    }
+
+    #[test]
+    fn unauthorized_status_is_a_token_rejection() {
+        let err = policy_status_error(reqwest::StatusCode::UNAUTHORIZED, None);
+
+        assert!(is_token_rejection(&err));
         assert!(!is_policy_rejection(&err));
     }
 

@@ -99,6 +99,8 @@ export const createEventBus = (deps: BusHandlerDeps) => {
       deps.dispatch({ type: 'enterpriseLogin/finished', success })
       deps.revalidateKeys(['getEnterpriseState'])
     },
+    'verge://enterprise-state-changed': () =>
+      deps.revalidateKeys(['getEnterpriseState']),
     [TEST_ALL_EVENT]: () => deps.dispatch({ type: 'testAll/requested' }),
   }
 

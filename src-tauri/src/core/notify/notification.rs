@@ -37,6 +37,7 @@ pub enum FrontendEvent<'a> {
     EnterpriseLoginFinished {
         success: bool,
     },
+    EnterpriseStateChanged,
     #[cfg(target_os = "linux")]
     ThemeChanged {
         theme: tauri::Theme,
@@ -348,6 +349,7 @@ impl NotificationSystem {
             FrontendEvent::EnterpriseLoginFinished { success } => {
                 ("verge://enterprise-login-finished", Ok(json!(success)))
             }
+            FrontendEvent::EnterpriseStateChanged => ("verge://enterprise-state-changed", Ok(serde_json::Value::Null)),
             #[cfg(target_os = "linux")]
             FrontendEvent::ThemeChanged { theme } => ("tauri://theme-changed", serde_json::to_value(theme)),
         }
@@ -452,6 +454,11 @@ fn sample_frontend_events(uid: &String) -> Vec<(FrontendEvent<'_>, &'static str,
             FrontendEvent::EnterpriseLoginFinished { success: true },
             "verge://enterprise-login-finished",
             json!(true),
+        ),
+        (
+            FrontendEvent::EnterpriseStateChanged,
+            "verge://enterprise-state-changed",
+            json!(null),
         ),
     ]
 }

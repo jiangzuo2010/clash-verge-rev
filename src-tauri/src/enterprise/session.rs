@@ -22,11 +22,20 @@ struct TokenResponse {
 }
 
 pub async fn refresh_enterprise_session_if_needed() -> Result<EnterpriseState> {
+    refresh_enterprise_session(false).await
+}
+
+/// Refreshes even before the recorded expiry, for a token the server has already rejected.
+pub async fn force_refresh_enterprise_session() -> Result<EnterpriseState> {
+    refresh_enterprise_session(true).await
+}
+
+async fn refresh_enterprise_session(force: bool) -> Result<EnterpriseState> {
     let mut state = EnterpriseState::load().await;
     if !state.config.enabled {
         bail!("enterprise mode is disabled");
     }
-    if let Err(err) = ensure_access_token(&mut state).await {
+    if let Err(err) = ensure_access_token(&mut state, force).await {
         state.save().await?;
         return Err(err);
     }
@@ -83,14 +92,14 @@ pub async fn hydrate_enterprise_user(state: &mut EnterpriseState) -> Result<()> 
     Ok(())
 }
 
-async fn ensure_access_token(state: &mut EnterpriseState) -> Result<()> {
+async fn ensure_access_token(state: &mut EnterpriseState, force: bool) -> Result<()> {
     if !state.session.authenticated {
         bail!("enterprise session is not authenticated");
     }
     if state.session.access_token.is_none() {
         bail!("enterprise session is missing access token");
     }
-    if !should_refresh(&state.session)? {
+    if !force && !should_refresh(&state.session)? {
         return Ok(());
     }
 

@@ -81,6 +81,11 @@ impl Handle {
         Self::send_event(FrontendEvent::EnterpriseLoginFinished { success });
     }
 
+    /// Background policy sync can sign the user out; the access page must not keep showing the old state.
+    pub fn notify_enterprise_state_changed() {
+        Self::send_event(FrontendEvent::EnterpriseStateChanged);
+    }
+
     pub fn notice(status: NoticeStatus, message: impl Into<Arc<str>>) {
         Self::send_event(FrontendEvent::NoticeMessage {
             status,

@@ -15,7 +15,7 @@ pub use auth::{
 pub use config::build_managed_proxy_config;
 pub use policy::{EnterprisePolicy, EnterprisePolicyError};
 pub use runtime::{apply_enterprise_runtime_state, ensure_enterprise_runtime_ready_for_core_start};
-pub use scheduler::next_policy_refresh_delay_secs;
+pub use scheduler::next_enterprise_sync_delay_secs;
 pub use session::{hydrate_enterprise_user, refresh_enterprise_session_if_needed, revoke_enterprise_session};
 pub use state::{
     EnterpriseConfig, EnterpriseConfigPatch, EnterprisePendingAuth, EnterpriseSession, EnterpriseState,

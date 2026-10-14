@@ -54,4 +54,5 @@ export interface VergeEventPayloads {
   'profile-update-started': { uid: string }
   'profile-update-completed': { uid: string }
   'verge://enterprise-login-finished': boolean
+  'verge://enterprise-state-changed': null
 }

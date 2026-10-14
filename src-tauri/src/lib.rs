@@ -144,7 +144,7 @@ mod app_init {
                 }
 
                 let state = enterprise::EnterpriseState::load().await;
-                let delay_secs = enterprise::next_policy_refresh_delay_secs(&state);
+                let delay_secs = enterprise::next_enterprise_sync_delay_secs(&state);
                 if !state.is_authenticated() {
                     tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                     continue;
@@ -160,7 +160,7 @@ mod app_init {
                                 logging!(warn, Type::Setup, "应用企业策略出错: {}", err);
                             }
                         }
-                        enterprise::next_policy_refresh_delay_secs(&state)
+                        enterprise::next_enterprise_sync_delay_secs(&state)
                     }
                     Err(err) => {
                         logging!(warn, Type::Setup, "同步企业策略失败: {}", err);
@@ -171,6 +171,7 @@ mod app_init {
                         delay_secs
                     }
                 };
+                core::handle::Handle::notify_enterprise_state_changed();
 
                 tokio::time::sleep(std::time::Duration::from_secs(next_delay_secs)).await;
             }
