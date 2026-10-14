@@ -107,7 +107,7 @@ async fn sync_policy_once() -> Result<EnterpriseState> {
 
     let policy = match fetch_policy(&state.config.policy_base_url, &access_token, &state.config.app_code).await {
         Err(err) if is_token_rejection(&err) => {
-            // A failed refresh signs the user out; a fresh token that is still rejected does below.
+            // A refused refresh signs the user out; a fresh token that is still rejected does below.
             state = force_refresh_enterprise_session().await?;
             let access_token = state
                 .session

@@ -12,6 +12,32 @@ const IAM_ME_PATH: &str = "/iam/user/me";
 const IAM_ME_APPS_PATH: &str = "/iam/user/me/apps";
 const TOKEN_REFRESH_SKEW_SECONDS: i64 = 60;
 
+/// The identity service refused the session. Only this signs the user out; network failures and
+/// server errors keep the session so the next sync can renew it once the client is back online.
+#[derive(Debug)]
+struct EnterpriseSessionRevoked(String);
+
+impl std::fmt::Display for EnterpriseSessionRevoked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enterprise session revoked: {}", self.0)
+    }
+}
+
+impl std::error::Error for EnterpriseSessionRevoked {}
+
+fn is_session_revoked(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<EnterpriseSessionRevoked>().is_some()
+}
+
+/// Keycloak answers an expired or revoked refresh token with 400 `invalid_grant`, IAM an invalid token with 401.
+fn session_status_error(what: &str, status: reqwest::StatusCode, body: &str) -> anyhow::Error {
+    let message = format!("{what} returned {status}: {body}");
+    if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED {
+        return EnterpriseSessionRevoked(message).into();
+    }
+    anyhow!(message)
+}
+
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -111,8 +137,10 @@ async fn ensure_access_token(state: &mut EnterpriseState, force: bool) -> Result
     let token = match refresh_access_token(&state.config, refresh_token).await {
         Ok(token) => token,
         Err(err) => {
-            state.clear_session();
-            state.clear_policy();
+            if is_session_revoked(&err) {
+                state.clear_session();
+                state.clear_policy();
+            }
             return Err(err);
         }
     };
@@ -124,8 +152,10 @@ async fn ensure_access_token(state: &mut EnterpriseState, force: bool) -> Result
         .expires_in
         .map(|seconds| (Utc::now() + Duration::seconds(seconds)).to_rfc3339());
     if let Err(err) = hydrate_enterprise_user(state).await {
-        state.clear_session();
-        state.clear_policy();
+        if is_session_revoked(&err) {
+            state.clear_session();
+            state.clear_policy();
+        }
         return Err(err);
     }
     Ok(())
@@ -149,7 +179,7 @@ async fn refresh_access_token(config: &EnterpriseConfig, refresh_token: &str) ->
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        bail!("enterprise token refresh returned {status}: {body}");
+        return Err(session_status_error("enterprise token refresh", status, &body));
     }
 
     response
@@ -173,7 +203,7 @@ async fn fetch_current_user(config: &EnterpriseConfig, access_token: &str) -> Re
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        bail!("enterprise current user request returned {status}: {body}");
+        return Err(session_status_error("enterprise current user request", status, &body));
     }
 
     let value = response
@@ -189,7 +219,7 @@ async fn ensure_app_authorized(config: &EnterpriseConfig, access_token: &str) ->
         return Ok(());
     }
 
-    bail!("enterprise user is not authorized for app {}", config.app_code)
+    Err(EnterpriseSessionRevoked(format!("user is not authorized for app {}", config.app_code)).into())
 }
 
 async fn fetch_authorized_apps(config: &EnterpriseConfig, access_token: &str) -> Result<Vec<String>> {
@@ -207,7 +237,11 @@ async fn fetch_authorized_apps(config: &EnterpriseConfig, access_token: &str) ->
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        bail!("enterprise authorized apps request returned {status}: {body}");
+        return Err(session_status_error(
+            "enterprise authorized apps request",
+            status,
+            &body,
+        ));
     }
 
     let value = response
@@ -238,7 +272,7 @@ fn unwrap_iam_result(value: Value) -> Result<Value> {
             .or_else(|| map.get("msg"))
             .and_then(Value::as_str)
             .unwrap_or("unknown");
-        bail!("enterprise current user request failed: {message}");
+        return Err(EnterpriseSessionRevoked(format!("enterprise current user request failed: {message}")).into());
     }
 
     map.get("data")
@@ -401,6 +435,16 @@ mod tests {
             read_string_list(&data, "roles", &["roleCode"]),
             vec!["ENTERPRISE_PROXY_ADMIN"]
         );
+    }
+
+    #[test]
+    fn only_identity_rejections_revoke_the_session() {
+        let revoked = |status| is_session_revoked(&session_status_error("refresh", status, ""));
+
+        assert!(revoked(reqwest::StatusCode::BAD_REQUEST));
+        assert!(revoked(reqwest::StatusCode::UNAUTHORIZED));
+        assert!(!revoked(reqwest::StatusCode::BAD_GATEWAY));
+        assert!(!revoked(reqwest::StatusCode::SERVICE_UNAVAILABLE));
     }
 
     #[test]
