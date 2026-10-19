@@ -94,6 +94,15 @@
       "upToDate": "Masz najnowszą wersję",
       "available": "Nowa wersja v{{version}} – zaktualizuj",
       "checkFailed": "Nie udało się sprawdzić aktualizacji. Spróbuj ponownie później."
+    },
+    "diagnostics": {
+      "button": "Wyślij logi",
+      "title": "Wyślij logi do IT",
+      "description": "Zostaną przesłane logi klienta z ostatnich 3 dni (w tym historia połączeń i odwiedzane adresy), wersja klienta i informacje o systemie – wyłącznie do diagnozy przez IT. Hasła i dane logowania nie są przesyłane.",
+      "send": "Wyślij",
+      "sent": "Logi wysłane. Przekaż IT poniższy numer zgłoszenia:",
+      "close": "Zamknij",
+      "failed": "Nie udało się wysłać logów. Spróbuj ponownie później lub skontaktuj się z IT."
     }
   },
   "components": {

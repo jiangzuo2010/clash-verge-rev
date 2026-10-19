@@ -190,6 +190,15 @@ export interface TranslationResources {
           readyHint: string
           retry: string
         }
+        diagnostics: {
+          button: string
+          close: string
+          description: string
+          failed: string
+          send: string
+          sent: string
+          title: string
+        }
         login: {
           action: string
           cancel: string

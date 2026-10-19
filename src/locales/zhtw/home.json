@@ -94,6 +94,15 @@
       "upToDate": "已是最新版本",
       "available": "新版本 v{{version}}，點擊更新",
       "checkFailed": "檢查更新失敗，請稍後重試"
+    },
+    "diagnostics": {
+      "button": "傳送日誌",
+      "title": "傳送日誌給 IT",
+      "description": "將上傳最近 3 天的用戶端日誌（包括連線記錄和造訪過的網址）、用戶端版本和系統資訊，僅用於 IT 排查問題。不包含密碼和登入憑證。",
+      "send": "傳送",
+      "sent": "日誌已傳送。請把下面的報告編號告訴 IT：",
+      "close": "關閉",
+      "failed": "日誌傳送失敗，請稍後重試或聯絡 IT"
     }
   },
   "components": {

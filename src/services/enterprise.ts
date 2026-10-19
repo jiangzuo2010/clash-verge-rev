@@ -81,3 +81,8 @@ export async function completeEnterpriseLogin(
 export async function syncEnterprisePolicy() {
   return invoke<EnterpriseStateView>('sync_enterprise_policy')
 }
+
+/** Uploads recent client logs and returns the server's report id. */
+export async function uploadEnterpriseDiagnostics() {
+  return invoke<string>('upload_enterprise_diagnostics')
+}

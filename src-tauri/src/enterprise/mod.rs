@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+pub mod diagnostics;
 mod http;
 pub mod policy;
 pub mod runtime;
@@ -13,6 +14,7 @@ pub use auth::{
     start_enterprise_login,
 };
 pub use config::build_managed_proxy_config;
+pub use diagnostics::upload_enterprise_diagnostics;
 pub use policy::{EnterprisePolicy, EnterprisePolicyError};
 pub use runtime::{apply_enterprise_runtime_state, ensure_enterprise_runtime_ready_for_core_start};
 pub use scheduler::next_enterprise_sync_delay_secs;

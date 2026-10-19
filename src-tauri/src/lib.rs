@@ -240,6 +240,7 @@ mod app_init {
             cmd::start_enterprise_login,
             cmd::complete_enterprise_login,
             cmd::sync_enterprise_policy,
+            cmd::upload_enterprise_diagnostics,
             cmd::get_clash_logs,
             cmd::get_verge_config,
             cmd::patch_verge_config,

@@ -4,6 +4,7 @@ use crate::enterprise::{
     apply_enterprise_runtime_state, complete_enterprise_login as complete_enterprise_login_impl,
     revoke_enterprise_session, shutdown_enterprise_login_callback,
     start_enterprise_login as start_enterprise_login_impl, sync_enterprise_policy_from_server,
+    upload_enterprise_diagnostics as upload_enterprise_diagnostics_impl,
 };
 use clash_verge_logging::{Type, logging};
 
@@ -66,4 +67,9 @@ pub async fn sync_enterprise_policy() -> CmdResult<EnterpriseStateView> {
     let state = sync_enterprise_policy_from_server().await.stringify_err()?;
     apply_enterprise_runtime_state(&state).await.stringify_err()?;
     Ok(state.to_view())
+}
+
+#[tauri::command]
+pub async fn upload_enterprise_diagnostics() -> CmdResult<String> {
+    upload_enterprise_diagnostics_impl().await.stringify_err()
 }

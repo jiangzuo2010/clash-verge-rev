@@ -24,14 +24,17 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
-import { DialogRef } from '@/components/base'
+import { BaseDialog, DialogRef } from '@/components/base'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { UpdateViewer } from '@/components/setting/mods/update-viewer'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
 import { useUpdate } from '@/hooks/use-update'
 import { useVerge } from '@/hooks/use-verge'
-import { syncEnterprisePolicy } from '@/services/enterprise'
+import {
+  syncEnterprisePolicy,
+  uploadEnterpriseDiagnostics,
+} from '@/services/enterprise'
 import { showNotice } from '@/services/notice-service'
 import { useEnterpriseLoginResult } from '@/store/app-store-context'
 import { version as appVersion } from '@root/package.json'
@@ -563,7 +566,76 @@ const EnterpriseUpdateStatus = () => {
             : t('home.enterprise.update.check')}
         </Button>
       )}
+      <EnterpriseDiagnosticsButton />
     </Stack>
+  )
+}
+
+const EnterpriseDiagnosticsButton = () => {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [reportId, setReportId] = useState('')
+
+  const onOpen = () => {
+    setReportId('')
+    setOpen(true)
+  }
+
+  const onSend = useLockFn(async () => {
+    if (reportId) {
+      setOpen(false)
+      return
+    }
+    setSending(true)
+    try {
+      setReportId(await uploadEnterpriseDiagnostics())
+    } catch (err) {
+      console.warn('[enterprise-diagnostics] upload failed:', err)
+      showNotice.error('home.enterprise.diagnostics.failed')
+    } finally {
+      setSending(false)
+    }
+  })
+
+  return (
+    <>
+      <Button size="small" color="inherit" onClick={onOpen}>
+        {t('home.enterprise.diagnostics.button')}
+      </Button>
+      <BaseDialog
+        open={open}
+        title={t('home.enterprise.diagnostics.title')}
+        okBtn={
+          reportId
+            ? t('home.enterprise.diagnostics.close')
+            : t('home.enterprise.diagnostics.send')
+        }
+        disableCancel={Boolean(reportId) || sending}
+        loading={sending}
+        onOk={onSend}
+        onCancel={() => setOpen(false)}
+        onClose={() => !sending && setOpen(false)}
+      >
+        {reportId ? (
+          <Stack spacing={1}>
+            <Typography variant="body2">
+              {t('home.enterprise.diagnostics.sent')}
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ fontFamily: 'monospace', userSelect: 'text' }}
+            >
+              {reportId}
+            </Typography>
+          </Stack>
+        ) : (
+          <Typography variant="body2">
+            {t('home.enterprise.diagnostics.description')}
+          </Typography>
+        )}
+      </BaseDialog>
+    </>
   )
 }
 
