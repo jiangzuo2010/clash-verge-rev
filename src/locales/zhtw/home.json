@@ -86,6 +86,14 @@
       "notReady": "連線未就緒",
       "notReadyHint": "請點擊重試，如仍無法使用請聯絡 IT。",
       "retry": "重試"
+    },
+    "update": {
+      "version": "版本 v{{version}}",
+      "check": "檢查更新",
+      "checking": "正在檢查…",
+      "upToDate": "已是最新版本",
+      "available": "新版本 v{{version}}，點擊更新",
+      "checkFailed": "檢查更新失敗，請稍後重試"
     }
   },
   "components": {

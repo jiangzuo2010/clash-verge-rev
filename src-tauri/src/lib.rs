@@ -51,8 +51,7 @@ mod app_init {
             .plugin(
                 tauri_plugin_updater::Builder::new()
                     .default_version_comparator(|current, release| {
-                        release.version > current
-                            || core::updater::is_build_to_stable(&current.to_string(), &release.version.to_string())
+                        !core::updater::version_lte(&release.version.to_string(), &current.to_string())
                     })
                     .build(),
             )

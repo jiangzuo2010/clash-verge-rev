@@ -226,6 +226,14 @@ export interface TranslationResources {
             rule: string
           }
         }
+        update: {
+          available: string
+          check: string
+          checkFailed: string
+          checking: string
+          upToDate: string
+          version: string
+        }
       }
       page: {
         cards: {

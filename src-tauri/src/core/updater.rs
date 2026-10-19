@@ -167,40 +167,25 @@ fn verify_signature(app_handle: &tauri::AppHandle, bytes: &[u8], signature: &str
     Ok(())
 }
 
-pub fn is_build_to_stable(current: &str, remote: &str) -> bool {
-    let Some((base, build)) = current.trim_start_matches('v').split_once('+') else {
-        return false;
-    };
-    !build.is_empty() && !base.contains('-') && base == remote.trim_start_matches('v')
-}
-
-/// Compares numeric version components after stripping version suffixes.
-fn version_lte(a: &str, b: &str) -> bool {
+/// Compares `major.minor.patch[+N]`; the numeric build `N` is the enterprise release number
+/// (tag `v2.5.8.N`), while pre-release and non-numeric build suffixes count as 0.
+pub fn version_lte(a: &str, b: &str) -> bool {
     let parse = |v: &str| -> Vec<u64> {
-        v.trim_start_matches('v')
-            .split(['-', '+'])
+        let v = v.trim_start_matches('v');
+        let (core, build) = v.split_once('+').unwrap_or((v, ""));
+        let mut parts: Vec<u64> = core
+            .split('-')
             .next()
             .unwrap_or("0")
             .split('.')
             .filter_map(|part| part.parse::<u64>().ok())
-            .collect()
+            .collect();
+        parts.resize(3, 0);
+        parts.push(build.parse::<u64>().unwrap_or(0));
+        parts
     };
 
-    let a_parts = parse(a);
-    let b_parts = parse(b);
-    let len = a_parts.len().max(b_parts.len());
-
-    for i in 0..len {
-        let av = a_parts.get(i).copied().unwrap_or(0);
-        let bv = b_parts.get(i).copied().unwrap_or(0);
-        if av < bv {
-            return true;
-        }
-        if av > bv {
-            return false;
-        }
-    }
-    true // equal
+    parse(a) <= parse(b)
 }
 
 /// Maps UI language to one of the three NSIS translations, defaulting to English.
@@ -344,7 +329,7 @@ impl SilentUpdater {
 
         let cached_version = &meta.version;
 
-        if !is_build_to_stable(current_version, cached_version) && version_lte(cached_version, current_version) {
+        if version_lte(cached_version, current_version) {
             logging!(
                 info,
                 Type::System,
@@ -693,5 +678,19 @@ impl SilentUpdater {
 
             tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_lte;
+
+    #[test]
+    fn enterprise_release_number_orders_versions() {
+        assert!(!version_lte("2.5.8+1", "2.5.8"));
+        assert!(!version_lte("2.5.8+10", "2.5.8+9"));
+        assert!(!version_lte("2.5.9", "2.5.8+3"));
+        assert!(version_lte("2.5.8+2", "2.5.8+2"));
+        assert!(version_lte("2.5.8+autobuild.1019", "2.5.8"));
     }
 }

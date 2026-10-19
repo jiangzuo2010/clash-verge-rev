@@ -86,6 +86,14 @@
       "notReady": "Brak połączenia",
       "notReadyHint": "Kliknij „Ponów”. Jeśli problem się powtarza, skontaktuj się z działem IT.",
       "retry": "Ponów"
+    },
+    "update": {
+      "version": "Wersja v{{version}}",
+      "check": "Sprawdź aktualizacje",
+      "checking": "Sprawdzanie…",
+      "upToDate": "Masz najnowszą wersję",
+      "available": "Nowa wersja v{{version}} – zaktualizuj",
+      "checkFailed": "Nie udało się sprawdzić aktualizacji. Spróbuj ponownie później."
     }
   },
   "components": {

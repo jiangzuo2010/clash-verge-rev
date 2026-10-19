@@ -8,6 +8,7 @@ import {
   OpenInNewRounded,
   PolicyRounded,
   SyncRounded,
+  SystemUpdateAltRounded,
 } from '@mui/icons-material'
 import {
   Box,
@@ -23,9 +24,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import appLogo from '@/assets/image/app_logo.png'
+import { DialogRef } from '@/components/base'
 import { EnhancedCard } from '@/components/home/enhanced-card'
+import { UpdateViewer } from '@/components/setting/mods/update-viewer'
 import { useEnterprise } from '@/hooks/use-enterprise'
 import { useI18n } from '@/hooks/use-i18n'
+import { useUpdate } from '@/hooks/use-update'
 import { useVerge } from '@/hooks/use-verge'
 import { syncEnterprisePolicy } from '@/services/enterprise'
 import { showNotice } from '@/services/notice-service'
@@ -500,8 +504,66 @@ export const EnterpriseAccessHome = ({
             </Stack>
           </Stack>
         </EnhancedCard>
+        <EnterpriseUpdateStatus />
       </Stack>
     </Box>
+  )
+}
+
+// Managed clients have no settings page, so the version and the update prompt live here.
+const EnterpriseUpdateStatus = () => {
+  const { t } = useTranslation()
+  const viewerRef = useRef<DialogRef>(null)
+  const { updateInfo, checkUpdate } = useUpdate()
+  const [checking, setChecking] = useState(false)
+  const available = updateInfo?.available ?? false
+
+  const onCheck = useLockFn(async () => {
+    setChecking(true)
+    try {
+      const { data } = await checkUpdate()
+      if (data?.available) {
+        viewerRef.current?.open()
+      } else {
+        showNotice.success('home.enterprise.update.upToDate')
+      }
+    } catch (err) {
+      console.warn('[enterprise-update] check failed:', err)
+      showNotice.error('home.enterprise.update.checkFailed')
+    } finally {
+      setChecking(false)
+    }
+  })
+
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{ alignItems: 'center', justifyContent: 'center' }}
+    >
+      <UpdateViewer ref={viewerRef} />
+      <Typography variant="caption" color="text.secondary">
+        {t('home.enterprise.update.version', { version: appVersion })}
+      </Typography>
+      {available ? (
+        <Button
+          size="small"
+          color="error"
+          startIcon={<SystemUpdateAltRounded />}
+          onClick={() => viewerRef.current?.open()}
+        >
+          {t('home.enterprise.update.available', {
+            version: updateInfo?.version ?? '',
+          })}
+        </Button>
+      ) : (
+        <Button size="small" disabled={checking} onClick={onCheck}>
+          {checking
+            ? t('home.enterprise.update.checking')
+            : t('home.enterprise.update.check')}
+        </Button>
+      )}
+    </Stack>
   )
 }
 

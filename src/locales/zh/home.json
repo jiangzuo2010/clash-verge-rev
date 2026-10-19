@@ -86,6 +86,14 @@
       "notReady": "连接未就绪",
       "notReadyHint": "请点击重试，如仍无法使用请联系 IT。",
       "retry": "重试"
+    },
+    "update": {
+      "version": "版本 v{{version}}",
+      "check": "检查更新",
+      "checking": "正在检查…",
+      "upToDate": "已是最新版本",
+      "available": "新版本 v{{version}}，点击更新",
+      "checkFailed": "检查更新失败，请稍后重试"
     }
   },
   "components": {

@@ -86,6 +86,14 @@
       "notReady": "Not connected",
       "notReadyHint": "Click Retry. If the problem persists, contact IT.",
       "retry": "Retry"
+    },
+    "update": {
+      "version": "Version v{{version}}",
+      "check": "Check for updates",
+      "checking": "Checking…",
+      "upToDate": "You are on the latest version",
+      "available": "New version v{{version}} – update",
+      "checkFailed": "Could not check for updates. Please try again later."
     }
   },
   "components": {

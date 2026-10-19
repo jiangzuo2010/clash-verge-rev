@@ -32,10 +32,16 @@ const extractSemver = (input: string | null | undefined): string | null => {
   return normalizeVersion(match[0])
 }
 
+// compare-versions ignores build metadata, but `+N` is the enterprise release number (tag v2.5.8.N).
+const buildNumber = (version: string) => {
+  const build = version.split('+')[1] ?? ''
+  return /^\d+$/.test(build) ? Number(build) : 0
+}
+
 const compareVersions = (a: string | null, b: string | null): number | null => {
   if (!a || !b) return null
   try {
-    return compareSemver(a, b)
+    return compareSemver(a, b) || Math.sign(buildNumber(a) - buildNumber(b))
   } catch {
     return null
   }
@@ -78,11 +84,7 @@ export const checkUpdateSafe = async (
   const remoteVersion = resolveRemoteVersion(result)
   const comparison = compareVersions(remoteVersion, localVersionNormalized)
 
-  const isBuildToStable =
-    /^\d+\.\d+\.\d+\+[0-9A-Za-z.-]+$/.test(localVersionNormalized ?? '') &&
-    remoteVersion === localVersionNormalized?.split('+')[0]
-
-  if (comparison !== null && comparison <= 0 && !isBuildToStable) {
+  if (comparison !== null && comparison <= 0) {
     try {
       await result.close()
     } catch (err) {
