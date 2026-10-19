@@ -275,6 +275,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.COS_SECRET_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.COS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ap-hongkong
+          # 新版 aws cli 默认按 aws-chunked 分块上传并附带校验和，COS 不支持，会报 MissingContentLength
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           COS_BUCKET: ${{ secrets.COS_BUCKET }}
         run: |
           set -euo pipefail
