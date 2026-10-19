@@ -2,12 +2,15 @@ name: Build Installers
 
 # 为 ChinEuro Secure Access 构建 macOS / Windows 安装包。
 #   - 手动触发：产物上传到 workflow artifacts，可只构建某一个平台
-#   - 推送 v*.*.* tag：构建全部架构并发布到 GitHub Release（草稿）
+#   - 推送 v*.*.* tag：构建全部架构并发布到 GitHub Release（草稿），同时把自更新文件上传到 COS，
+#     已安装的客户端随即会检测到这个版本
 #
 # 可选 secrets：
 #   ENTERPRISE_POLICY_CRYPTO_SECRET  企业策略加密密钥，编译期注入；不配则回落代码内默认值
 #   TAURI_PRIVATE_KEY                应用自更新签名私钥；不配则跳过自更新产物
 #   TAURI_KEY_PASSWORD               上述私钥的密码
+#   COS_SECRET_ID / COS_SECRET_KEY   腾讯云 COS 访问密钥；推送 tag 时用来上传自更新文件
+#   COS_BUCKET                       自更新文件所在的香港 bucket，形如 name-1250000000
 on:
   workflow_dispatch:
     inputs:
@@ -262,3 +265,32 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           generate_release_notes: ${{ github.ref_type == 'tag' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # updates.taxspace.eu 指向这个 bucket。先传安装包，最后替换 latest.json，
+      # 避免客户端读到新清单时安装包还没到位
+      - name: 上传自更新文件到腾讯云 COS
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.COS_SECRET_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.COS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ap-hongkong
+          COS_BUCKET: ${{ secrets.COS_BUCKET }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f artifacts/latest.json ]]; then
+            echo '⚠️ 没有 latest.json，跳过上传'
+            exit 0
+          fi
+          if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$COS_BUCKET" ]]; then
+            echo '::error::未配置 COS_SECRET_ID / COS_SECRET_KEY / COS_BUCKET，客户端收不到这个版本的更新'
+            exit 1
+          fi
+
+          version=$(jq -r .version source/src-tauri/tauri.conf.json)
+          endpoint=https://cos.ap-hongkong.myqcloud.com
+          dest="s3://$COS_BUCKET/chineuro-proxy"
+          aws configure set default.s3.addressing_style virtual
+          aws s3 cp artifacts/ "$dest/v$version/" --recursive --exclude latest.json --endpoint-url "$endpoint"
+          aws s3 cp artifacts/latest.json "$dest/latest.json" --endpoint-url "$endpoint" \
+            --content-type application/json --cache-control no-cache
