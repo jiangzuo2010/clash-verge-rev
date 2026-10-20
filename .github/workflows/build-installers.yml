@@ -216,7 +216,7 @@ jobs:
           sparse-checkout-cone-mode: false
           path: source
 
-      # 客户端从 https://updates.taxspace.eu/chineuro-proxy/latest.json 检查更新，
+      # 客户端从 https://updates.taxspace.eu/chineuro-gateway/latest.json 检查更新，
       # 清单里的下载地址指向同站点下的 v<版本>/ 目录，发布时需把本 Release 的文件原样上传到该目录
       - name: 生成自更新清单 latest.json
         shell: bash
@@ -230,7 +230,7 @@ jobs:
           fi
 
           version=$(jq -r .version source/src-tauri/tauri.conf.json)
-          base="https://updates.taxspace.eu/chineuro-proxy/v${version}"
+          base="https://updates.taxspace.eu/chineuro-gateway/v${version}"
           platforms='{}'
           for sig in "${sigs[@]}"; do
             file=$(basename "${sig%.sig}")
@@ -292,8 +292,11 @@ jobs:
 
           version=$(jq -r .version source/src-tauri/tauri.conf.json)
           endpoint=https://cos.ap-hongkong.myqcloud.com
-          dest="s3://$COS_BUCKET/chineuro-proxy"
+          dest="s3://$COS_BUCKET/chineuro-gateway"
           aws configure set default.s3.addressing_style virtual
           aws s3 cp artifacts/ "$dest/v$version/" --recursive --exclude latest.json --endpoint-url "$endpoint"
-          aws s3 cp artifacts/latest.json "$dest/latest.json" --endpoint-url "$endpoint" \
-            --content-type application/json --cache-control no-cache
+          # 2.5.8+2 及更早的客户端仍查旧目录 chineuro-proxy/，同一份清单也写一份过去，让它们能升级到新地址
+          for manifest in "$dest/latest.json" "s3://$COS_BUCKET/chineuro-proxy/latest.json"; do
+            aws s3 cp artifacts/latest.json "$manifest" --endpoint-url "$endpoint" \
+              --content-type application/json --cache-control no-cache
+          done

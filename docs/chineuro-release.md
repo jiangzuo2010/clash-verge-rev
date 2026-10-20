@@ -21,7 +21,7 @@
     "updater": {
       "pubkey": "<public-key-content>",
       "endpoints": [
-        "https://updates.taxspace.eu/chineuro-proxy/latest.json"
+        "https://updates.taxspace.eu/chineuro-gateway/latest.json"
       ]
     }
   }
@@ -47,8 +47,8 @@
 4. 推 `v*` tag 后，`build-installers.yml` 的 Release 里会附带 `latest.json`（静态更新清单）。发布时把该 Release 的全部文件原样上传到更新站点：
 
    ```text
-   https://updates.taxspace.eu/chineuro-proxy/latest.json          ← 覆盖为最新版本的清单
-   https://updates.taxspace.eu/chineuro-proxy/v<版本>/<安装包与 .sig>  ← 清单里的下载地址指向这里
+   https://updates.taxspace.eu/chineuro-gateway/latest.json          ← 覆盖为最新版本的清单
+   https://updates.taxspace.eu/chineuro-gateway/v<版本>/<安装包与 .sig>  ← 清单里的下载地址指向这里
    ```
 
    客户端只比较 `latest.json` 的 `version`，比自己新才提示更新；先上传 `v<版本>/` 目录，最后再覆盖 `latest.json`，避免清单先指向尚未上传的文件。
