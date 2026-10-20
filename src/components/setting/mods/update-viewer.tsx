@@ -1,4 +1,4 @@
-import { alpha, Box, Button, LinearProgress } from '@mui/material'
+import { alpha, Box, LinearProgress } from '@mui/material'
 import type { DownloadEvent } from '@tauri-apps/plugin-updater'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
@@ -325,18 +325,6 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
               version: updateInfo?.version ?? '',
             })}
           </Box>
-          <Button
-            variant="contained"
-            size="small"
-            sx={{ whiteSpace: 'nowrap' }}
-            onClick={() => {
-              openUrlWithNotice(
-                `https://github.com/clash-verge-rev/clash-verge-rev/releases/tag/v${updateInfo?.version}`,
-              )
-            }}
-          >
-            {t('settings.modals.update.actions.goToRelease')}
-          </Button>
         </Box>
       }
       contentSx={{

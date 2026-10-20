@@ -611,6 +611,7 @@ const EnterpriseDiagnosticsButton = () => {
             ? t('home.enterprise.diagnostics.close')
             : t('home.enterprise.diagnostics.send')
         }
+        cancelBtn={t('shared.actions.cancel')}
         disableCancel={Boolean(reportId) || sending}
         loading={sending}
         onOk={onSend}

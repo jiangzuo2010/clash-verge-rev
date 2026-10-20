@@ -98,7 +98,7 @@
     "diagnostics": {
       "button": "Send logs",
       "title": "Send logs to IT",
-      "description": "This uploads the last 3 days of client logs (including connection history and visited addresses), the client version, and system details, for IT troubleshooting only. Passwords and sign-in credentials are not included.",
+      "description": "This uploads the last 3 days of client logs, the client version, and system details, for IT troubleshooting only. Passwords and sign-in credentials are not included.",
       "send": "Send",
       "sent": "Logs sent. Give IT this report number:",
       "close": "Close",

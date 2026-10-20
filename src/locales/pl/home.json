@@ -98,7 +98,7 @@
     "diagnostics": {
       "button": "Wyślij logi",
       "title": "Wyślij logi do IT",
-      "description": "Zostaną przesłane logi klienta z ostatnich 3 dni (w tym historia połączeń i odwiedzane adresy), wersja klienta i informacje o systemie – wyłącznie do diagnozy przez IT. Hasła i dane logowania nie są przesyłane.",
+      "description": "Zostaną przesłane logi klienta z ostatnich 3 dni, wersja klienta i informacje o systemie – wyłącznie do diagnozy przez IT. Hasła i dane logowania nie są przesyłane.",
       "send": "Wyślij",
       "sent": "Logi wysłane. Przekaż IT poniższy numer zgłoszenia:",
       "close": "Zamknij",
