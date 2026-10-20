@@ -71,5 +71,8 @@ pub async fn sync_enterprise_policy() -> CmdResult<EnterpriseStateView> {
 
 #[tauri::command]
 pub async fn upload_enterprise_diagnostics() -> CmdResult<String> {
-    upload_enterprise_diagnostics_impl().await.stringify_err()
+    upload_enterprise_diagnostics_impl().await.map_err(|err| {
+        logging!(warn, Type::Core, "发送诊断日志失败: {err:#}");
+        format!("{err:#}").into()
+    })
 }

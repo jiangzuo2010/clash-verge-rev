@@ -576,9 +576,11 @@ const EnterpriseDiagnosticsButton = () => {
   const [open, setOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [reportId, setReportId] = useState('')
+  const [failure, setFailure] = useState('')
 
   const onOpen = () => {
     setReportId('')
+    setFailure('')
     setOpen(true)
   }
 
@@ -588,11 +590,14 @@ const EnterpriseDiagnosticsButton = () => {
       return
     }
     setSending(true)
+    setFailure('')
     try {
       setReportId(await uploadEnterpriseDiagnostics())
     } catch (err) {
       console.warn('[enterprise-diagnostics] upload failed:', err)
-      showNotice.error('home.enterprise.diagnostics.failed')
+      setFailure(
+        (err as { detail?: string } | null)?.detail ?? String(err ?? ''),
+      )
     } finally {
       setSending(false)
     }
@@ -631,9 +636,29 @@ const EnterpriseDiagnosticsButton = () => {
             </Typography>
           </Stack>
         ) : (
-          <Typography variant="body2">
-            {t('home.enterprise.diagnostics.description')}
-          </Typography>
+          <Stack spacing={1.5}>
+            <Typography variant="body2">
+              {t('home.enterprise.diagnostics.description')}
+            </Typography>
+            {failure && (
+              <Box>
+                <Typography variant="body2" color="error">
+                  {t('home.enterprise.diagnostics.failed')}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    fontFamily: 'monospace',
+                    userSelect: 'text',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {failure}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
         )}
       </BaseDialog>
     </>

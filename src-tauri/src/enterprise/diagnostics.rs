@@ -51,7 +51,8 @@ pub async fn upload_enterprise_diagnostics() -> Result<String> {
     let status = response.status();
     let body = response.json::<Value>().await.ok();
     if !status.is_success() {
-        bail!("enterprise diagnostics upload failed with HTTP {status}");
+        let message = body.as_ref().map(server_message).unwrap_or_default();
+        bail!("enterprise diagnostics upload failed with HTTP {status} {message}");
     }
     report_id(body.as_ref())
 }
@@ -70,17 +71,22 @@ fn report_id(body: Option<&Value>) -> Result<String> {
     if let Some(code) = body.get("code").and_then(Value::as_str)
         && code != "000000"
     {
-        let message = body
-            .get("message")
-            .or_else(|| body.get("msg"))
-            .and_then(Value::as_str)
-            .unwrap_or("unknown");
-        bail!("enterprise diagnostics upload failed: {message}");
+        bail!("enterprise diagnostics upload failed: {}", server_message(body));
     }
     body.pointer("/data/reportId")
         .and_then(Value::as_str)
         .map(Into::into)
         .ok_or_else(|| anyhow!("enterprise diagnostics response is missing reportId"))
+}
+
+fn server_message(body: &Value) -> String {
+    let code = body.get("code").and_then(Value::as_str).unwrap_or_default();
+    let message = body
+        .get("message")
+        .or_else(|| body.get("msg"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    format!("{code} {message}").trim().into()
 }
 
 // Never include the enterprise state or Mihomo config: they hold tokens and the proxy password.
@@ -106,6 +112,7 @@ fn build_archive(meta: &Value) -> Result<Vec<u8>> {
     zip.write_all(&serde_json::to_vec_pretty(meta)?)?;
 
     let mut budget = MAX_TOTAL_BYTES;
+    let mut skipped = Vec::new();
     for (prefix, dir) in log_dirs() {
         for path in recent_logs(&dir) {
             if budget == 0 {
@@ -114,11 +121,22 @@ fn build_archive(meta: &Value) -> Result<Vec<u8>> {
             let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
                 continue;
             };
-            let bytes = read_tail(&path, MAX_FILE_BYTES.min(budget))?;
+            // A log the service account wrote may be unreadable here; send the rest anyway.
+            let bytes = match read_tail(&path, MAX_FILE_BYTES.min(budget)) {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    skipped.push(format!("{prefix}/{name}: {err:#}"));
+                    continue;
+                }
+            };
             budget -= bytes.len() as u64;
             zip.start_file(format!("{prefix}/{name}"), options)?;
             zip.write_all(&bytes)?;
         }
+    }
+    if !skipped.is_empty() {
+        zip.start_file("skipped.txt", options)?;
+        zip.write_all(skipped.join("\n").as_bytes())?;
     }
 
     Ok(zip.finish()?.into_inner())
