@@ -74,6 +74,7 @@ async fn resolve_setup() {
         init_verge_config().await;
     }
     Config::verify_config_initialization().await;
+    logging_error!(Type::Setup, init::migrate_auto_launch_default().await);
 
     // Live before the core starts, so a service appearing mid-start is not missed.
     #[cfg(target_os = "macos")]

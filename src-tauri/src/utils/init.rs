@@ -288,6 +288,42 @@ pub async fn migrate_short_update_intervals() -> Result<()> {
     Ok(())
 }
 
+/// Re-enables auto-launch once for installs whose saved config still carries the
+/// old default; opting out afterwards is respected (the marker runs once only).
+pub async fn migrate_auto_launch_default() -> Result<()> {
+    let marker = dirs::auto_launch_migrated_path()?;
+    if fs::try_exists(&marker).await? {
+        return Ok(());
+    }
+
+    // No saved config means a fresh install: the template already defaults to
+    // enabled, so only record the marker.
+    let config_path = dirs::app_home_dir()?.join(dirs::VERGE_CONFIG);
+    if fs::try_exists(&config_path).await? {
+        let flipped = Config::verge()
+            .await
+            .with_data_modify(|mut verge: IVerge| async move {
+                if verge.enable_auto_launch != Some(false) {
+                    return Ok((verge, false));
+                }
+                verge.enable_auto_launch = Some(true);
+                verge.save_file().await?;
+                Ok((verge, true))
+            })
+            .await?;
+        if flipped {
+            logging!(
+                info,
+                Type::Setup,
+                "re-enabled auto-launch for an install that predated the enabled default"
+            );
+        }
+    }
+
+    fs::write(&marker, b"").await?;
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 async fn migrate_legacy_macos_logs() -> Result<()> {
     let log_dir = dirs::app_logs_dir()?;
