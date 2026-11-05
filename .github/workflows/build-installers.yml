@@ -9,6 +9,8 @@ name: Build Installers
 #   ENTERPRISE_POLICY_CRYPTO_SECRET  企业策略加密密钥，编译期注入；不配则回落代码内默认值
 #   TAURI_PRIVATE_KEY                应用自更新签名私钥；不配则跳过自更新产物
 #   TAURI_KEY_PASSWORD               上述私钥的密码
+#   WINDOWS_CERTIFICATE              Windows 代码签名证书（Base64 PFX）；不配则 Windows 包不签名
+#   WINDOWS_CERTIFICATE_PASSWORD     上述 PFX 的密码
 #   COS_SECRET_ID / COS_SECRET_KEY   腾讯云 COS 访问密钥；推送 tag 时用来上传自更新文件
 #   COS_BUCKET                       自更新文件所在的香港 bucket，形如 name-1250000000
 on:
@@ -125,6 +127,31 @@ jobs:
       - name: 准备内核与资源文件
         run: pnpm run prebuild ${{ matrix.target }}
 
+      # Windows 代码签名（可选）：配置了 WINDOWS_CERTIFICATE 才启用，未配置时完全跳过、
+      # 行为与现状一致；后补证书只需在 repo secrets 填值，无需再改本文件。
+      # 证书需为 Base64 编码的 PFX（CA 签发的 OV/EV 证书导出后 base64 即可）。
+      - name: 导入 Windows 签名证书
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Output '未配置 WINDOWS_CERTIFICATE，本次构建不做代码签名'
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          $b64 = "$pfx.b64"
+          Set-Content -Path $b64 -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode $b64 $pfx
+          Remove-Item $b64
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          $thumbprint = (Get-PfxData -FilePath $pfx -Password $password).EndEntityCertificates[0].Thumbprint
+          "WINDOWS_SIGN_THUMBPRINT=$thumbprint" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Output "已导入签名证书，thumbprint: $thumbprint"
+
       - name: 构建安装包
         shell: bash
         env:
@@ -139,15 +166,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          # --config 是深合并，把可选覆盖（updater 产物开关、Windows 签名）拼成同一个 JSON
+          config='{}'
+
           if [[ "$HAS_SIGNING_KEY" == 'true' ]]; then
             echo '✅ 检测到 updater 签名密钥，将一并生成自更新产物'
-            pnpm tauri build --target '${{ matrix.target }}'
           else
             # tauri.conf.json 里 createUpdaterArtifacts 为 true，缺私钥会直接构建失败，
             # 这里临时关掉它，让没配密钥时也能出安装包（但装出来的应用不支持自更新）
             echo '⚠️ 未配置 TAURI_PRIVATE_KEY，本次跳过自更新产物'
-            pnpm tauri build --target '${{ matrix.target }}' \
-              --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            config=$(jq -c '.bundle.createUpdaterArtifacts = false' <<< "$config")
+          fi
+
+          if [[ -n "${WINDOWS_SIGN_THUMBPRINT:-}" ]]; then
+            echo '✅ 检测到 Windows 代码签名证书，可执行文件（含内核）与安装包将一并签名'
+            config=$(jq -c --arg t "$WINDOWS_SIGN_THUMBPRINT" '.bundle.windows = {
+              certificateThumbprint: $t,
+              digestAlgorithm: "sha256",
+              timestampUrl: "http://timestamp.digicert.com"
+            }' <<< "$config")
+          fi
+
+          if [[ "$config" == '{}' ]]; then
+            pnpm tauri build --target '${{ matrix.target }}'
+          else
+            pnpm tauri build --target '${{ matrix.target }}' --config "$config"
           fi
 
       - name: 收集产物
