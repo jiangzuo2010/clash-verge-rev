@@ -346,7 +346,7 @@ impl IVerge {
             common_tray_icon: Some(false),
             sysproxy_tray_icon: Some(false),
             tun_tray_icon: Some(false),
-            enable_auto_launch: Some(false),
+            enable_auto_launch: Some(true),
             enable_silent_start: Some(false),
             enable_hover_jump_navigator: Some(true),
             hover_jump_navigator_delay: Some(280),

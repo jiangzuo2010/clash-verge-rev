@@ -174,6 +174,7 @@ fn build_task_xml(mode: TaskMode) -> Result<String> {
   <Actions Context="Author">
     <Exec>
       <Command>{}</Command>
+      <Arguments>--silent</Arguments>
     </Exec>
   </Actions>
 </Task>

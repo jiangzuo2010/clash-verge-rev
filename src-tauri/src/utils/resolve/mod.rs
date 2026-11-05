@@ -91,6 +91,7 @@ async fn resolve_setup() {
         init_auto_lightweight_boot(),
         init_auto_backup(),
         init_silent_updater(),
+        init_autostart(),
     );
 
     Handle::refresh_clash();
@@ -235,14 +236,28 @@ async fn refresh_tray_menu() {
     logging_error!(Type::Setup, Tray::global().update_part().await);
 }
 
+async fn init_autostart() {
+    // Auto-launch registration is patch-driven, so a fresh install never triggers
+    // it; syncing on every start also re-registers entries removed by OS cleaners.
+    logging_error!(Type::Setup, crate::core::autostart::update_launch().await);
+}
+
+// Auto-launch entries (Windows task arguments, macOS LaunchAgent, Linux .desktop)
+// pass --silent so boot launches stay in the tray; manual launches show the window.
+fn has_silent_launch_flag() -> bool {
+    std::env::args().any(|arg| arg == "--silent")
+}
+
 async fn init_window() {
-    let is_silent_start = Config::verge().await.data_arc().enable_silent_start.unwrap_or(false);
+    let is_silent_start =
+        Config::verge().await.data_arc().enable_silent_start.unwrap_or(false) || has_silent_launch_flag();
     WindowManager::create_window(!is_silent_start).await;
 }
 
 #[cfg(target_os = "macos")]
 async fn resolve_dock_show() {
-    let is_silent_start = Config::verge().await.data_arc().enable_silent_start.unwrap_or(false);
+    let is_silent_start =
+        Config::verge().await.data_arc().enable_silent_start.unwrap_or(false) || has_silent_launch_flag();
     if is_silent_start {
         Handle::global().set_activation_policy_accessory();
     }

@@ -103,7 +103,9 @@ mod app_init {
         #[cfg(target_os = "macos")]
         let mut auto_start_plugin_builder = tauri_plugin_autostart::Builder::new();
         #[cfg(not(target_os = "macos"))]
-        let auto_start_plugin_builder = tauri_plugin_autostart::Builder::new();
+        let mut auto_start_plugin_builder = tauri_plugin_autostart::Builder::new();
+
+        auto_start_plugin_builder = auto_start_plugin_builder.args(["--silent"]);
 
         #[cfg(target_os = "macos")]
         {
