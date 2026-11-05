@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "chineuro-proxy"
-version = "2.5.8+5"
+version = "2.5.8+6"
 dependencies = [
  "aes-gcm",
  "anyhow",
